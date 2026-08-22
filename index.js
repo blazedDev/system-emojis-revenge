@@ -38,31 +38,10 @@ var __vd_plugin = (() => {
     }
   });
 
-  // vd-shim:@vendetta/ui/components
-  var require_components = __commonJS({
-    "vd-shim:@vendetta/ui/components"(exports, module) {
-      module.exports = vendetta["ui.components"];
-    }
-  });
-
   // vd-shim:@vendetta/plugin
   var require_plugin = __commonJS({
     "vd-shim:@vendetta/plugin"(exports, module) {
       module.exports = vendetta["plugin"];
-    }
-  });
-
-  // vd-shim:@vendetta/ui/toasts
-  var require_toasts = __commonJS({
-    "vd-shim:@vendetta/ui/toasts"(exports, module) {
-      module.exports = vendetta["ui.toasts"];
-    }
-  });
-
-  // vd-shim:@vendetta/ui/assets
-  var require_assets = __commonJS({
-    "vd-shim:@vendetta/ui/assets"(exports, module) {
-      module.exports = vendetta["ui.assets"];
     }
   });
 
@@ -81,23 +60,32 @@ var __vd_plugin = (() => {
     onUnload: () => onUnload
   });
   var import_common2 = __toESM(require_common(), 1);
-  var import_components = __toESM(require_components(), 1);
 
   // src/stuff/controller.ts
   var import_plugin = __toESM(require_plugin(), 1);
-  var import_toasts = __toESM(require_toasts(), 1);
-  var import_assets = __toESM(require_assets(), 1);
 
   // src/stuff/rows.ts
   var import_patcher = __toESM(require_patcher(), 1);
   function iterateContent(rows) {
     const out = [];
     let header;
+    let converted = 0;
     for (const original of rows) {
       let row = original;
-      if (row?.type === "emoji") row = { type: "text", content: row.surrogate };
-      if ("content" in row && Array.isArray(row.content)) row.content = iterateContent(row.content);
-      if ("items" in row && Array.isArray(row.items)) row.items = iterateContent(row.items);
+      if (row?.type === "emoji") {
+        row = { type: "text", content: row.surrogate };
+        converted++;
+      }
+      if ("content" in row && Array.isArray(row.content)) {
+        const [c, n] = iterateContent(row.content);
+        row.content = c;
+        converted += n;
+      }
+      if ("items" in row && Array.isArray(row.items)) {
+        const [it, n] = iterateContent(row.items);
+        row.items = it;
+        converted += n;
+      }
       if ("jumboable" in original && original.jumboable && !header) {
         header = { type: "heading", level: 1, content: [] };
       }
@@ -109,14 +97,18 @@ var __vd_plugin = (() => {
       else out.push(row);
     }
     if (header) out.push(header);
-    return out;
+    return [out, converted];
   }
   function convertMessageRows(rows) {
+    let converted = 0;
     for (const row of rows) {
       if (row?.type === 1 && row.message?.content) {
-        row.message.content = iterateContent(row.message.content);
+        const [content, n] = iterateContent(row.message.content);
+        row.message.content = content;
+        converted += n;
       }
     }
+    return converted;
   }
   function getNativeModule(...names) {
     for (const name of names) {
@@ -198,16 +190,18 @@ var __vd_plugin = (() => {
   }
 
   // src/stuff/images.ts
-  function installImagePatch() {
+  function installImagePatch(onHit) {
     const OrigImage = import_common.ReactNative.Image;
     const OrigText = import_common.ReactNative.Text;
-    if (!OrigImage || typeof OrigImage !== "function" && typeof OrigImage !== "object") {
-      return { unwind: () => {
-      }, ok: false };
-    }
+    if (!OrigImage) return { unwind: () => {
+    }, ok: false };
     const wrapper = function EmojiAwareImage(props) {
       const emoji = uriToEmoji(props?.source?.uri);
       if (emoji) {
+        try {
+          onHit?.();
+        } catch {
+        }
         return import_common.React.createElement(
           OrigText ?? "View",
           props?.style ? { style: props.style, children: emoji } : { children: emoji }
@@ -250,41 +244,75 @@ var __vd_plugin = (() => {
       } catch {
       }
     }
-    vstorage.statusChat = false;
-    vstorage.statusImages = false;
+  }
+  function resetDebug() {
+    vstorage.dbgRows = 0;
+    vstorage.dbgEmojiRows = 0;
+    vstorage.dbgImages = 0;
   }
   function applyAll() {
     unwindAll();
     vstorage.statusChat = false;
     vstorage.statusImages = false;
+    resetDebug();
     if (vstorage.patchMessages !== false) {
-      const rowsPatch = patchRows(convertMessageRows);
-      if (rowsPatch) {
-        unwinds.push(rowsPatch);
-        vstorage.statusChat = true;
+      const mod = getChatModule();
+      if (!mod || typeof mod.updateRows !== "function") {
+        console.warn("[SystemEmojisEverywhere] m\xF3dulo del chat no encontrado");
       } else {
-        console.warn("[SystemEmojisEverywhere] No se encontr\xF3 el m\xF3dulo nativo del chat");
-        (0, import_toasts.showToast)(
-          "System Emojis: m\xF3dulo del chat no encontrado",
-          (0, import_assets.getAssetIDByName)("CircleXIcon-primary")
-        );
+        const rowsPatch = patchRows((rows) => {
+          vstorage.dbgRows = (vstorage.dbgRows ?? 0) + 1;
+          vstorage.dbgEmojiRows = (vstorage.dbgEmojiRows ?? 0) + convertMessageRows(rows);
+        });
+        if (rowsPatch) {
+          unwinds.push(rowsPatch);
+          vstorage.statusChat = true;
+        }
       }
     }
     if (vstorage.patchImages === true) {
-      const img = installImagePatch();
+      const img = installImagePatch(() => {
+        vstorage.dbgImages = (vstorage.dbgImages ?? 0) + 1;
+      });
       unwinds.push(img.unwind);
       vstorage.statusImages = img.ok;
     }
   }
 
   // src/index.tsx
-  var { FormSection, FormSwitchRow, FormDivider, FormText } = import_components.Forms;
+  var { View, Text, Switch, StyleSheet, ScrollView } = import_common2.ReactNative;
   function onLoad() {
     if (typeof vstorage.patchMessages !== "boolean") vstorage.patchMessages = true;
     if (typeof vstorage.patchImages !== "boolean") vstorage.patchImages = true;
     applyAll();
   }
   var onUnload = () => unwindAll();
+  var styles = StyleSheet.create({
+    wrap: { flex: 1, paddingVertical: 24 },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 16,
+      paddingVertical: 14
+    },
+    title: { fontSize: 16, color: "#fff", flexShrink: 1, marginRight: 12 },
+    sub: { fontSize: 13, color: "#b5bac1", marginTop: 2, flexShrink: 1 },
+    divider: { height: 1, backgroundColor: "#26272b", marginHorizontal: 16 },
+    section: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: "#94949c",
+      paddingHorizontal: 16,
+      paddingTop: 20,
+      paddingBottom: 6,
+      textTransform: "uppercase"
+    },
+    note: { fontSize: 13, color: "#b5bac1", paddingHorizontal: 16, lineHeight: 19 }
+  });
+  function Row(props) {
+    return /* @__PURE__ */ import_common2.React.createElement(View, { style: styles.row }, /* @__PURE__ */ import_common2.React.createElement(View, { style: { flex: 1 } }, /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.title }, props.title), props.sub ? /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.sub }, props.sub) : null), /* @__PURE__ */ import_common2.React.createElement(Switch, { value: props.value, onValueChange: props.onChange }));
+  }
   function SettingsPanel() {
     const [, force] = import_common2.React.useState(0);
     const rerender = () => force((x) => x + 1);
@@ -293,23 +321,23 @@ var __vd_plugin = (() => {
       applyAll();
       rerender();
     }
-    return /* @__PURE__ */ import_common2.React.createElement(import_common2.React.Fragment, null, /* @__PURE__ */ import_common2.React.createElement(FormSection, { title: "Reemplazo" }, /* @__PURE__ */ import_common2.React.createElement(
-      FormSwitchRow,
+    return /* @__PURE__ */ import_common2.React.createElement(ScrollView, { style: styles.wrap }, /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.section }, "Reemplazo"), /* @__PURE__ */ import_common2.React.createElement(
+      Row,
       {
         title: "Mensajes y respuestas",
-        subTitle: "M\xE9todo estable: convierte los Twemoji a emojis del sistema en el chat",
+        sub: "Convierte los Twemoji del chat a emojis del sistema",
         value: vstorage.patchMessages,
-        onPress: () => toggle("patchMessages")
+        onChange: () => toggle("patchMessages")
       }
-    ), /* @__PURE__ */ import_common2.React.createElement(FormDivider, null), /* @__PURE__ */ import_common2.React.createElement(
-      FormSwitchRow,
+    ), /* @__PURE__ */ import_common2.React.createElement(View, { style: styles.divider }), /* @__PURE__ */ import_common2.React.createElement(
+      Row,
       {
-        title: "Embeds, reacciones y m\xE1s (experimental)",
-        subTitle: "Intercepta todas las im\xE1genes de emoji. Puede fallar seg\xFAn la versi\xF3n de Discord",
+        title: "Im\xE1genes de emoji",
+        sub: "Reemplaza im\xE1genes twemoji/asset por texto (experimental)",
         value: vstorage.patchImages,
-        onPress: () => toggle("patchImages")
+        onChange: () => toggle("patchImages")
       }
-    ), /* @__PURE__ */ import_common2.React.createElement(FormDivider, null), /* @__PURE__ */ import_common2.React.createElement(FormText, null, "Estado: chat", " ", vstorage.statusChat ? "\u2705 conectado" : "\u274C sin parche", " \xB7 im\xE1genes", " ", vstorage.statusImages ? "\u2705 activo" : "\u274C inactivo", "\n", "Los emojis personalizados de servidores no se modifican. Si algo queda raro, desactiv\xE1 y activ\xE1 el plugin o reinici\xE1 la app.")));
+    ), /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.section }, "Diagn\xF3stico"), /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.note }, "chat conectado: ", vstorage.statusChat ? "s\xED" : "no", "\n", "parche de im\xE1genes activo: ", vstorage.statusImages ? "s\xED" : "no", "\n", "updateRows llamado: ", vstorage.dbgRows ?? 0, "\n", "emojis convertidos en mensajes: ", vstorage.dbgEmojiRows ?? 0, "\n", "im\xE1genes de emoji reemplazadas: ", vstorage.dbgImages ?? 0), /* @__PURE__ */ import_common2.React.createElement(Text, { style: [styles.note, { marginTop: 16 }] }, "Los emojis personalizados de servidores no se modifican. Abr\xED un chat con emojis y volv\xE9 ac\xE1 para ver los contadores moverse."));
   }
   var Settings = SettingsPanel;
   return __toCommonJS(index_exports);
