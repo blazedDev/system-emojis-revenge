@@ -1,7 +1,6 @@
 import { React } from "@vendetta/metro/common";
 import { storage } from "@vendetta/plugin";
 import { Forms } from "@vendetta/ui/components";
-import { useProxy } from "@vendetta/storage";
 
 import { applyAll, unwindAll, vstorage } from "./stuff/controller";
 
@@ -15,13 +14,15 @@ export function onLoad() {
 
 export const onUnload = () => unwindAll();
 
-function toggle(key: "patchMessages" | "patchImages") {
-    vstorage[key] = !vstorage[key];
-    applyAll();
-}
-
 function SettingsPanel() {
-    useProxy(storage);
+    const [, force] = React.useState(0);
+    const rerender = () => force(x => x + 1);
+
+    function toggle(key: "patchMessages" | "patchImages") {
+        vstorage[key] = !vstorage[key];
+        applyAll();
+        rerender();
+    }
 
     return (
         <>
