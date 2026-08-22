@@ -13,10 +13,11 @@ Los emojis personalizados de servidores **no** se tocan.
 
 ## Instalación
 
-### Opción A: GitHub Pages (recomendada)
+### Opción A: GitHub Pages
 
-1. Pusheá este repo a GitHub (el workflow publica `dist/` en `gh-pages` automáticamente).
-2. En Revenge → Plugins → ➕ pegá:
+1. Pusheá este repo (la rama `gh-pages` ya contiene el build, generada con `build.sh && git subtree split --prefix=dist -b tmp && git push origin tmp:gh-pages`).
+2. En GitHub → **Settings → Pages** → Source: *Deploy from a branch* → Branch: `gh-pages` / root → **Save**.
+3. En Revenge → Plugins → ➕ pegá:
    ```
    https://TU_USUARIO.github.io/system-emojis-revenge/
    ```
