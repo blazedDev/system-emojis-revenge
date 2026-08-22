@@ -1,11 +1,43 @@
-import emojiRegex from "emoji-regex";
+import emojiRegexFactory from "emoji-regex";
 
-const EMOJI_RE = emojiRegex();
+let cached: RegExp | null = null;
+let fallbackMode = false;
+
+function buildRegex(): RegExp {
+    try {
+        const r = emojiRegexFactory();
+        if (r) {
+            r.exec("😀");
+            return r;
+        }
+    } catch {}
+    fallbackMode = true;
+    return new RegExp(
+        "(?:"
+        + "[\\uD83C\\uDDE6-\\uD83C\\uDDFF]{2}"
+        + "|[\\uD83C-\\uD83E][\\uDC00-\\uDFFF](?:[\\uFE0F]|\\uD83C[\\uDFFB-\\uDFFF]|\\u200D[\\uD83C-\\uD83E][\\uDC00-\\uDFFF])*"
+        + "|[#*0-9]\\u20E3"
+        + "|[\\u00A9\\u00AE\\u203C\\u2049\\u2122\\u2139\\u2194-\\u21AA\\u231A-\\u231B\\u2328\\u23CF\\u23E9-\\u23FA\\u24C2\\u25AA\\u25AB\\u25B6\\u25C0\\u25FB-\\u25FE\\u2600-\\u27BF\\u2934\\u2935\\u2B00-\\u2B55\\u3030\\u303D\\u3297\\u3299]\\uFE0F?"
+        + ")",
+        "g",
+    );
+}
+
+export function getEmojiRe(): RegExp {
+    if (!cached) cached = buildRegex();
+    cached.lastIndex = 0;
+    return cached;
+}
+
+export function isFallback(): boolean {
+    return fallbackMode;
+}
 
 export function isEmojiChar(text: string): boolean {
     if (!text) return false;
-    const m = EMOJI_RE.exec(text);
-    return !!m && m[0] === text;
+    const re = getEmojiRe();
+    const m = re.exec(text);
+    return !!m && m[0] === text && m.index === 0;
 }
 
 export function fromCodePoints(cps: string[]): string {

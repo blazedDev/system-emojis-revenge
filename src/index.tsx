@@ -6,7 +6,7 @@ import { applyAll, unwindAll, vstorage } from "./stuff/controller";
 
 const { View, Text, Switch, StyleSheet, ScrollView } = RN as any;
 
-export const VERSION = "v7";
+export const VERSION = "v8";
 
 try {
     showToast(`System Emojis ${VERSION}: código evaluado ✅`);

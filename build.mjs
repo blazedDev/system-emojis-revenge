@@ -37,8 +37,19 @@ await esbuild.build({
 
 let js = readFileSync("dist/index.js", "utf8");
 js = js.replace(/^"use strict";\n?/, "");
-// Envolver como EXPRESIÓN única (contrato del cargador): (() => { ... })()
-const wrapped = `(() => {\n"use strict";\n${js}\n})();`;
+
+const wrapped = `(() => {
+"use strict";
+try {
+${js}
+} catch (e) {
+  try {
+    vendetta["ui.toasts"].showToast("System Emojis ERROR eval: " + String((e && e.stack) || e).slice(0, 150));
+  } catch (_e) {}
+  throw e;
+}
+})();`;
+
 writeFileSync("dist/index.js", wrapped);
 
 const hash = createHash("sha256").update(wrapped).digest("hex");
@@ -48,4 +59,4 @@ manifest.main = "index.js";
 manifest.hash = hash;
 writeFileSync("dist/manifest.json", JSON.stringify(manifest, null, 4));
 
-console.log(`Build OK -> dist/index.js (${js.length}B, sha256: ${hash.slice(0, 12)}...)`);
+console.log(`Build OK -> dist/index.js (${wrapped.length}B, sha256: ${hash.slice(0, 12)}...)`);
