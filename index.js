@@ -2,15 +2,10 @@
 "use strict";
 try {
 var __vd_plugin = (() => {
-  var __create = Object.create;
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
-  var __getProtoOf = Object.getPrototypeOf;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
-  var __commonJS = (cb, mod) => function __require() {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-  };
   var __export = (target, all) => {
     for (var name in all)
       __defProp(target, name, { get: all[name], enumerable: true });
@@ -23,60 +18,107 @@ var __vd_plugin = (() => {
     }
     return to;
   };
-  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-    // If the importer is in node compatibility mode or this is not an ESM
-    // file that has been converted to a CommonJS file using a Babel-
-    // compatible transform (i.e. "__esModule" has not been set), then set
-    // "default" to the CommonJS "module.exports" for node compatibility.
-    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-    mod
-  ));
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
-
-  // vd-shim:@vendetta/metro/common
-  var require_common = __commonJS({
-    "vd-shim:@vendetta/metro/common"(exports, module) {
-      module.exports = vendetta["metro.common"];
-    }
-  });
-
-  // vd-shim:@vendetta/ui/toasts
-  var require_toasts = __commonJS({
-    "vd-shim:@vendetta/ui/toasts"(exports, module) {
-      module.exports = vendetta["ui.toasts"];
-    }
-  });
-
-  // vd-shim:@vendetta/plugin
-  var require_plugin = __commonJS({
-    "vd-shim:@vendetta/plugin"(exports, module) {
-      module.exports = vendetta["plugin"];
-    }
-  });
-
-  // vd-shim:@vendetta/patcher
-  var require_patcher = __commonJS({
-    "vd-shim:@vendetta/patcher"(exports, module) {
-      module.exports = vendetta["patcher"];
-    }
-  });
 
   // src/index.tsx
   var index_exports = {};
   __export(index_exports, {
-    Settings: () => Settings,
     VERSION: () => VERSION,
+    getSettings: () => getSettings,
     onLoad: () => onLoad,
     onUnload: () => onUnload
   });
-  var import_common2 = __toESM(require_common(), 1);
-  var import_toasts = __toESM(require_toasts(), 1);
 
-  // src/stuff/controller.ts
-  var import_plugin = __toESM(require_plugin(), 1);
+  // src/stuff/env.ts
+  var VD;
+  try {
+    VD = vendetta;
+  } catch {
+    VD = void 0;
+  }
+  function getVd() {
+    if (VD) return VD;
+    try {
+      return globalThis.vendetta;
+    } catch {
+      return void 0;
+    }
+  }
+  function getRN() {
+    try {
+      const rn = getVd()?.["metro.common"]?.ReactNative;
+      if (rn) return rn;
+    } catch {
+    }
+    try {
+      return globalThis.ReactNative;
+    } catch {
+      return void 0;
+    }
+  }
+  function getPatcher() {
+    try {
+      return getVd()?.patcher ?? getVd()?.["patcher"];
+    } catch {
+      return void 0;
+    }
+  }
+  function getToasts() {
+    try {
+      const st = getVd()?.["ui.toasts"]?.showToast;
+      return typeof st === "function" ? (m) => st(m) : null;
+    } catch {
+      return null;
+    }
+  }
+  var storageFallback = null;
+  function getStorage() {
+    try {
+      const s = getVd()?.plugin?.storage;
+      if (s && typeof s === "object") return s;
+    } catch {
+    }
+    if (!storageFallback) storageFallback = {};
+    return storageFallback;
+  }
+  function reportError(scope, e) {
+    let text = "";
+    try {
+      text = String(e?.stack || e).slice(0, 400);
+    } catch {
+      text = String(e);
+    }
+    try {
+      console.error("[SystemEmojisEverywhere]", scope, text);
+    } catch {
+    }
+    try {
+      const Alert = getRN()?.Alert;
+      if (Alert?.alert) {
+        Alert.alert("System Emojis ERROR", scope + "\n\n" + text);
+        return;
+      }
+    } catch {
+    }
+    try {
+      const t = getToasts();
+      if (t) t(scope + ": " + text);
+    } catch {
+    }
+  }
+  function toast(m) {
+    try {
+      console.log("[SystemEmojisEverywhere]", m);
+    } catch {
+    }
+    try {
+      const t = getToasts();
+      if (t) t(m);
+    } catch {
+    }
+  }
 
   // src/stuff/rows.ts
-  var import_patcher = __toESM(require_patcher(), 1);
   function iterateContent(rows) {
     const out = [];
     let header;
@@ -142,7 +184,9 @@ var __vd_plugin = (() => {
   function patchRows(callback) {
     const mod = getChatModule();
     if (!mod?.updateRows) return null;
-    return (0, import_patcher.before)("updateRows", mod, (args) => {
+    const patcher = getPatcher();
+    if (!patcher?.before || typeof patcher.before !== "function") return null;
+    return patcher.before("updateRows", mod, (args) => {
       try {
         const rows = JSON.parse(args[1]);
         callback(rows);
@@ -152,9 +196,6 @@ var __vd_plugin = (() => {
       }
     });
   }
-
-  // src/stuff/images.ts
-  var import_common = __toESM(require_common(), 1);
 
   // node_modules/emoji-regex/index.mjs
   var emoji_regex_default = () => {
@@ -224,10 +265,15 @@ var __vd_plugin = (() => {
 
   // src/stuff/images.ts
   function installImagePatch(onHit) {
-    const OrigImage = import_common.ReactNative.Image;
-    const OrigText = import_common.ReactNative.Text;
-    if (!OrigImage) return { unwind: () => {
-    }, ok: false };
+    const RN = getRN();
+    const React = getVd()?.["metro.common"]?.React;
+    const OrigImage = RN?.Image;
+    const OrigText = RN?.Text;
+    if (!OrigImage || !React) {
+      reportError("im\xE1genes", "RN.Image o React no disponibles");
+      return { unwind: () => {
+      }, ok: false };
+    }
     const wrapper = function EmojiAwareImage(props) {
       const emoji = uriToEmoji(props?.source?.uri);
       if (emoji) {
@@ -235,12 +281,12 @@ var __vd_plugin = (() => {
           onHit?.();
         } catch {
         }
-        return import_common.React.createElement(
+        return React.createElement(
           OrigText ?? "View",
           props?.style ? { style: props.style, children: emoji } : { children: emoji }
         );
       }
-      return import_common.React.createElement(OrigImage, props);
+      return React.createElement(OrigImage, props);
     };
     try {
       for (const key of Object.keys(OrigImage ?? {})) {
@@ -249,16 +295,16 @@ var __vd_plugin = (() => {
         } catch {
         }
       }
-      import_common.ReactNative.Image = wrapper;
+      RN.Image = wrapper;
     } catch (e) {
-      console.error("[SystemEmojisEverywhere] no se pudo parchear RN.Image:", e?.message);
+      reportError("im\xE1genes", e);
       return { unwind: () => {
       }, ok: false };
     }
     return {
       unwind: () => {
         try {
-          import_common.ReactNative.Image = OrigImage;
+          RN.Image = OrigImage;
         } catch {
         }
       },
@@ -267,7 +313,7 @@ var __vd_plugin = (() => {
   }
 
   // src/stuff/controller.ts
-  var vstorage = import_plugin.storage;
+  var vstorage = getStorage();
   var unwinds = [];
   function unwindAll() {
     let u;
@@ -289,107 +335,165 @@ var __vd_plugin = (() => {
     vstorage.statusImages = false;
     resetDebug();
     if (vstorage.patchMessages !== false) {
-      const mod = getChatModule();
-      if (!mod || typeof mod.updateRows !== "function") {
-        console.warn("[SystemEmojisEverywhere] m\xF3dulo del chat no encontrado");
-      } else {
-        const rowsPatch = patchRows((rows) => {
-          vstorage.dbgRows = (vstorage.dbgRows ?? 0) + 1;
-          vstorage.dbgEmojiRows = (vstorage.dbgEmojiRows ?? 0) + convertMessageRows(rows);
-        });
-        if (rowsPatch) {
-          unwinds.push(rowsPatch);
-          vstorage.statusChat = true;
+      try {
+        const mod = getChatModule();
+        if (!mod || typeof mod.updateRows !== "function") {
+          reportError("chat", "m\xF3dulo del chat no encontrado (updateRows ausente)");
+        } else {
+          const rowsPatch = patchRows((rows) => {
+            vstorage.dbgRows = (vstorage.dbgRows ?? 0) + 1;
+            vstorage.dbgEmojiRows = (vstorage.dbgEmojiRows ?? 0) + convertMessageRows(rows);
+          });
+          if (rowsPatch) {
+            unwinds.push(rowsPatch);
+            vstorage.statusChat = true;
+          }
         }
+      } catch (e) {
+        reportError("capa filas", e);
       }
     }
     if (vstorage.patchImages === true) {
-      const img = installImagePatch(() => {
-        vstorage.dbgImages = (vstorage.dbgImages ?? 0) + 1;
-      });
-      unwinds.push(img.unwind);
-      vstorage.statusImages = img.ok;
+      try {
+        const img = installImagePatch(() => {
+          vstorage.dbgImages = (vstorage.dbgImages ?? 0) + 1;
+        });
+        unwinds.push(img.unwind);
+        vstorage.statusImages = img.ok;
+      } catch (e) {
+        reportError("capa im\xE1genes", e);
+      }
     }
   }
 
   // src/index.tsx
-  var { View, Text, Switch, StyleSheet, ScrollView } = import_common2.ReactNative;
-  var VERSION = "v8";
-  try {
-    (0, import_toasts.showToast)(`System Emojis ${VERSION}: c\xF3digo evaluado \u2705`);
-  } catch {
+  var VERSION = "v9";
+  var defaults = {
+    patchMessages: true,
+    patchImages: false,
+    statusChat: false,
+    statusImages: false,
+    dbgRows: 0,
+    dbgEmojiRows: 0,
+    dbgImages: 0,
+    errMsg: ""
+  };
+  for (const k of Object.keys(defaults)) {
+    if (vstorage[k] === void 0) vstorage[k] = defaults[k];
+  }
+  var SettingsPanel = () => null;
+  function buildSettings() {
+    try {
+      const RN = getRN();
+      const React = getVd()?.["metro.common"]?.React;
+      if (!RN || !React) {
+        reportError("ajustes", "ReactNative/React no disponibles");
+        return () => null;
+      }
+      const { View, Text, Switch, ScrollView, StyleSheet } = RN;
+      const styles = StyleSheet.create({
+        page: { flex: 1 },
+        body: { padding: 12, gap: 14 },
+        row: { flexDirection: "row", alignItems: "center", gap: 8 },
+        title: { fontSize: 15, fontWeight: "700" },
+        sub: { fontSize: 13, opacity: 0.7 },
+        mono: { fontFamily: "monospace", fontSize: 11, opacity: 0.8 },
+        err: { color: "#ff5252", fontSize: 12 }
+      });
+      const Toggle = (props) => React.createElement(
+        View,
+        { style: styles.row },
+        React.createElement(Text, { style: { flex: 1 } }, props.label),
+        React.createElement(Switch, {
+          value: !!props.value,
+          onValueChange: props.onChange
+        })
+      );
+      return function Settings() {
+        const [, force] = React.useState(0);
+        const rerender = () => force((n) => n + 1);
+        return React.createElement(
+          ScrollView,
+          { style: styles.page, contentContainerStyle: styles.body },
+          React.createElement(
+            Text,
+            { style: styles.title },
+            "System Emojis Everywhere ",
+            VERSION
+          ),
+          React.createElement(
+            Text,
+            { style: styles.sub },
+            "Reemplaza Twemoji por los emojis de tu sistema."
+          ),
+          React.createElement(Toggle, {
+            label: "Mensajes (filas del chat)",
+            value: vstorage.patchMessages !== false,
+            onChange: (v) => {
+              vstorage.patchMessages = v;
+              applyAll();
+              rerender();
+            }
+          }),
+          React.createElement(Toggle, {
+            label: "Im\xE1genes (avatares/reacciones)",
+            value: vstorage.patchImages === true,
+            onChange: (v) => {
+              vstorage.patchImages = v;
+              applyAll();
+              rerender();
+            }
+          }),
+          React.createElement(
+            Text,
+            { style: styles.mono },
+            `chat conectado: ${vstorage.statusChat ? "s\xED" : "no"}
+im\xE1genes parcheadas: ${vstorage.statusImages ? "s\xED" : "no"}
+updateRows llamado: ${vstorage.dbgRows ?? 0}
+emojis convertidos: ${vstorage.dbgEmojiRows ?? 0}
+im\xE1genes reemplazadas: ${vstorage.dbgImages ?? 0}`
+          ),
+          vstorage.errMsg ? React.createElement(Text, { style: styles.err }, String(vstorage.errMsg)) : null,
+          React.createElement(
+            Text,
+            { style: styles.sub, onPress: () => {
+              resetDebug();
+              rerender();
+            } },
+            "Toc\xE1 aqu\xED para reiniciar el diagn\xF3stico."
+          )
+        );
+      };
+    } catch (e) {
+      reportError("construir ajustes", e);
+      return () => null;
+    }
   }
   function onLoad() {
     try {
-      if (typeof vstorage.patchMessages !== "boolean") vstorage.patchMessages = true;
-      if (typeof vstorage.patchImages !== "boolean") vstorage.patchImages = true;
+      SettingsPanel = buildSettings();
       applyAll();
-      vstorage.errMsg = void 0;
-      (0, import_toasts.showToast)(`System Emojis ${VERSION}: parches aplicados \u2705`);
+      vstorage.errMsg = "";
+      toast(`System Emojis ${VERSION}: activo \u2705`);
     } catch (e) {
-      vstorage.errMsg = String(e?.stack ?? e);
       try {
-        (0, import_toasts.showToast)(`System Emojis ERROR: ${vstorage.errMsg.slice(0, 120)}`);
+        vstorage.errMsg = String(e?.stack || e).slice(0, 300);
       } catch {
       }
-      throw e;
+      reportError("onLoad", e);
     }
   }
-  var onUnload = () => unwindAll();
-  var styles = StyleSheet.create({
-    wrap: { flex: 1, paddingVertical: 24 },
-    row: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: 16,
-      paddingVertical: 14
-    },
-    title: { fontSize: 16, color: "#fff", flexShrink: 1, marginRight: 12 },
-    sub: { fontSize: 13, color: "#b5bac1", marginTop: 2, flexShrink: 1 },
-    divider: { height: 1, backgroundColor: "#26272b", marginHorizontal: 16 },
-    section: {
-      fontSize: 12,
-      fontWeight: "700",
-      color: "#94949c",
-      paddingHorizontal: 16,
-      paddingTop: 20,
-      paddingBottom: 6,
-      textTransform: "uppercase"
-    },
-    note: { fontSize: 13, color: "#b5bac1", paddingHorizontal: 16, lineHeight: 19 },
-    err: { fontSize: 12, color: "#f23f42", paddingHorizontal: 16, marginTop: 8 }
-  });
-  function Row(props) {
-    return /* @__PURE__ */ import_common2.React.createElement(View, { style: styles.row }, /* @__PURE__ */ import_common2.React.createElement(View, { style: { flex: 1 } }, /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.title }, props.title), props.sub ? /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.sub }, props.sub) : null), /* @__PURE__ */ import_common2.React.createElement(Switch, { value: props.value, onValueChange: props.onChange }));
-  }
-  function SettingsPanel() {
-    const [, force] = import_common2.React.useState(0);
-    const rerender = () => force((x) => x + 1);
-    function toggle(key) {
-      vstorage[key] = !vstorage[key];
-      applyAll();
-      rerender();
+  function onUnload() {
+    try {
+      unwindAll();
+    } catch (e) {
+      reportError("onUnload", e);
     }
-    return /* @__PURE__ */ import_common2.React.createElement(ScrollView, { style: styles.wrap }, /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.section }, "System Emojis Everywhere \xB7 ", VERSION), !!vstorage.errMsg && /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.err }, "ERROR: ", vstorage.errMsg), /* @__PURE__ */ import_common2.React.createElement(
-      Row,
-      {
-        title: "Mensajes y respuestas",
-        sub: "Convierte los Twemoji del chat a emojis del sistema",
-        value: vstorage.patchMessages,
-        onChange: () => toggle("patchMessages")
-      }
-    ), /* @__PURE__ */ import_common2.React.createElement(View, { style: styles.divider }), /* @__PURE__ */ import_common2.React.createElement(
-      Row,
-      {
-        title: "Im\xE1genes de emoji",
-        sub: "Reemplaza im\xE1genes twemoji/asset por texto (experimental)",
-        value: vstorage.patchImages,
-        onChange: () => toggle("patchImages")
-      }
-    ), /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.section }, "Diagn\xF3stico"), /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.note }, "chat conectado: ", vstorage.statusChat ? "s\xED" : "no", "\n", "parche de im\xE1genes activo: ", vstorage.statusImages ? "s\xED" : "no", "\n", "updateRows llamado: ", vstorage.dbgRows ?? 0, "\n", "emojis convertidos en mensajes: ", vstorage.dbgEmojiRows ?? 0, "\n", "im\xE1genes reemplazadas: ", vstorage.dbgImages ?? 0), /* @__PURE__ */ import_common2.React.createElement(Text, { style: [styles.note, { marginTop: 16 }] }, "Abr\xED un chat con emojis y volv\xE9 ac\xE1: los contadores deber\xEDan moverse."));
   }
-  var Settings = SettingsPanel;
+  function getSettings() {
+    if (!SettingsPanel) SettingsPanel = buildSettings();
+    return SettingsPanel;
+  }
   return __toCommonJS(index_exports);
 })();
 return __vd_plugin;
