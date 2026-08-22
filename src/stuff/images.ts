@@ -1,13 +1,18 @@
-import { React, ReactNative as RN } from "@vendetta/metro/common";
+import { getRN, getVd, reportError } from "./env";
 import { uriToEmoji } from "./emoji";
 
 export function installImagePatch(
     onHit?: () => void,
 ): { unwind: () => void; ok: boolean } {
-    const OrigImage: any = (RN as any).Image;
-    const OrigText: any = (RN as any).Text;
+    const RN: any = getRN();
+    const React = getVd()?.["metro.common"]?.React;
+    const OrigImage: any = RN?.Image;
+    const OrigText: any = RN?.Text;
 
-    if (!OrigImage) return { unwind: () => {}, ok: false };
+    if (!OrigImage || !React) {
+        reportError("imágenes", "RN.Image o React no disponibles");
+        return { unwind: () => {}, ok: false };
+    }
 
     const wrapper = function EmojiAwareImage(props: any) {
         const emoji = uriToEmoji(props?.source?.uri);
@@ -31,7 +36,7 @@ export function installImagePatch(
         }
         (RN as any).Image = wrapper;
     } catch (e: any) {
-        console.error("[SystemEmojisEverywhere] no se pudo parchear RN.Image:", e?.message);
+        reportError("imágenes", e);
         return { unwind: () => {}, ok: false };
     }
 

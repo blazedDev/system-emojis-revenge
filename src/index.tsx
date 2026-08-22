@@ -1,118 +1,138 @@
-import { React, ReactNative as RN } from "@vendetta/metro/common";
-import { storage } from "@vendetta/plugin";
-import { showToast } from "@vendetta/ui/toasts";
+import { getStorage, getRN, getVd, toast, reportError } from "./stuff/env";
+import { applyAll, unwindAll, resetDebug, vstorage } from "./stuff/controller";
 
-import { applyAll, unwindAll, vstorage } from "./stuff/controller";
+export const VERSION = "v9";
 
-const { View, Text, Switch, StyleSheet, ScrollView } = RN as any;
+const defaults: Record<string, any> = {
+    patchMessages: true,
+    patchImages: false,
+    statusChat: false,
+    statusImages: false,
+    dbgRows: 0,
+    dbgEmojiRows: 0,
+    dbgImages: 0,
+    errMsg: "",
+};
+for (const k of Object.keys(defaults)) {
+    if (vstorage[k] === undefined) vstorage[k] = defaults[k];
+}
 
-export const VERSION = "v8";
+let SettingsPanel: any = () => null;
 
-try {
-    showToast(`System Emojis ${VERSION}: código evaluado ✅`);
-} catch {}
-
-export function onLoad() {
+function buildSettings(): any {
     try {
-        if (typeof vstorage.patchMessages !== "boolean") vstorage.patchMessages = true;
-        if (typeof vstorage.patchImages !== "boolean") vstorage.patchImages = true;
+        const RN: any = getRN();
+        const React: any = getVd()?.["metro.common"]?.React;
+        if (!RN || !React) {
+            reportError("ajustes", "ReactNative/React no disponibles");
+            return () => null;
+        }
+        const { View, Text, Switch, ScrollView, StyleSheet } = RN;
+
+        const styles = StyleSheet.create({
+            page: { flex: 1 },
+            body: { padding: 12, gap: 14 },
+            row: { flexDirection: "row", alignItems: "center", gap: 8 },
+            title: { fontSize: 15, fontWeight: "700" },
+            sub: { fontSize: 13, opacity: 0.7 },
+            mono: { fontFamily: "monospace", fontSize: 11, opacity: 0.8 },
+            err: { color: "#ff5252", fontSize: 12 },
+        });
+
+        const Toggle = (props: { label: string; value: boolean; onChange: (v: boolean) => void }) =>
+            React.createElement(
+                View,
+                { style: styles.row },
+                React.createElement(Text, { style: { flex: 1 } }, props.label),
+                React.createElement(Switch, {
+                    value: !!props.value,
+                    onValueChange: props.onChange,
+                }),
+            );
+
+        return function Settings() {
+            const [, force] = React.useState(0);
+            const rerender = () => force((n: number) => n + 1);
+            return React.createElement(
+                ScrollView,
+                { style: styles.page, contentContainerStyle: styles.body },
+                React.createElement(
+                    Text,
+                    { style: styles.title },
+                    "System Emojis Everywhere ",
+                    VERSION,
+                ),
+                React.createElement(
+                    Text,
+                    { style: styles.sub },
+                    "Reemplaza Twemoji por los emojis de tu sistema.",
+                ),
+                React.createElement(Toggle, {
+                    label: "Mensajes (filas del chat)",
+                    value: vstorage.patchMessages !== false,
+                    onChange: (v: boolean) => {
+                        vstorage.patchMessages = v;
+                        applyAll();
+                        rerender();
+                    },
+                }),
+                React.createElement(Toggle, {
+                    label: "Imágenes (avatares/reacciones)",
+                    value: vstorage.patchImages === true,
+                    onChange: (v: boolean) => {
+                        vstorage.patchImages = v;
+                        applyAll();
+                        rerender();
+                    },
+                }),
+                React.createElement(
+                    Text,
+                    { style: styles.mono },
+                    `chat conectado: ${vstorage.statusChat ? "sí" : "no"}`
+                    + `\nimágenes parcheadas: ${vstorage.statusImages ? "sí" : "no"}`
+                    + `\nupdateRows llamado: ${vstorage.dbgRows ?? 0}`
+                    + `\nemojis convertidos: ${vstorage.dbgEmojiRows ?? 0}`
+                    + `\nimágenes reemplazadas: ${vstorage.dbgImages ?? 0}`,
+                ),
+                vstorage.errMsg
+                    ? React.createElement(Text, { style: styles.err }, String(vstorage.errMsg))
+                    : null,
+                React.createElement(
+                    Text,
+                    { style: styles.sub, onPress: () => { resetDebug(); rerender(); } },
+                    "Tocá aquí para reiniciar el diagnóstico.",
+                ),
+            );
+        };
+    } catch (e) {
+        reportError("construir ajustes", e);
+        return () => null;
+    }
+}
+
+export function onLoad(): void {
+    try {
+        SettingsPanel = buildSettings();
         applyAll();
-        vstorage.errMsg = undefined;
-        showToast(`System Emojis ${VERSION}: parches aplicados ✅`);
-    } catch (e: any) {
-        vstorage.errMsg = String(e?.stack ?? e);
+        vstorage.errMsg = "";
+        toast(`System Emojis ${VERSION}: activo ✅`);
+    } catch (e) {
         try {
-            showToast(`System Emojis ERROR: ${vstorage.errMsg.slice(0, 120)}`);
+            vstorage.errMsg = String((e as any)?.stack || e).slice(0, 300);
         } catch {}
-        throw e;
+        reportError("onLoad", e);
     }
 }
 
-export const onUnload = () => unwindAll();
-
-const styles = StyleSheet.create({
-    wrap: { flex: 1, paddingVertical: 24 },
-    row: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-    },
-    title: { fontSize: 16, color: "#fff", flexShrink: 1, marginRight: 12 },
-    sub: { fontSize: 13, color: "#b5bac1", marginTop: 2, flexShrink: 1 },
-    divider: { height: 1, backgroundColor: "#26272b", marginHorizontal: 16 },
-    section: {
-        fontSize: 12,
-        fontWeight: "700",
-        color: "#94949c",
-        paddingHorizontal: 16,
-        paddingTop: 20,
-        paddingBottom: 6,
-        textTransform: "uppercase",
-    },
-    note: { fontSize: 13, color: "#b5bac1", paddingHorizontal: 16, lineHeight: 19 },
-    err: { fontSize: 12, color: "#f23f42", paddingHorizontal: 16, marginTop: 8 },
-});
-
-function Row(props: { title: string; sub?: string; value: boolean; onChange: () => void }) {
-    return (
-        <View style={styles.row}>
-            <View style={{ flex: 1 }}>
-                <Text style={styles.title}>{props.title}</Text>
-                {props.sub ? <Text style={styles.sub}>{props.sub}</Text> : null}
-            </View>
-            <Switch value={props.value} onValueChange={props.onChange} />
-        </View>
-    );
-}
-
-function SettingsPanel() {
-    const [, force] = React.useState(0);
-    const rerender = () => force((x: number) => x + 1);
-
-    function toggle(key: "patchMessages" | "patchImages") {
-        vstorage[key] = !vstorage[key];
-        applyAll();
-        rerender();
+export function onUnload(): void {
+    try {
+        unwindAll();
+    } catch (e) {
+        reportError("onUnload", e);
     }
-
-    return (
-        <ScrollView style={styles.wrap}>
-            <Text style={styles.section}>System Emojis Everywhere · {VERSION}</Text>
-            {!!vstorage.errMsg && (
-                <Text style={styles.err}>ERROR: {vstorage.errMsg}</Text>
-            )}
-            <Row
-                title="Mensajes y respuestas"
-                sub="Convierte los Twemoji del chat a emojis del sistema"
-                value={vstorage.patchMessages}
-                onChange={() => toggle("patchMessages")}
-            />
-            <View style={styles.divider} />
-            <Row
-                title="Imágenes de emoji"
-                sub="Reemplaza imágenes twemoji/asset por texto (experimental)"
-                value={vstorage.patchImages}
-                onChange={() => toggle("patchImages")}
-            />
-            <Text style={styles.section}>Diagnóstico</Text>
-            <Text style={styles.note}>
-                chat conectado: {vstorage.statusChat ? "sí" : "no"}
-                {"\n"}
-                parche de imágenes activo: {vstorage.statusImages ? "sí" : "no"}
-                {"\n"}
-                updateRows llamado: {vstorage.dbgRows ?? 0}
-                {"\n"}
-                emojis convertidos en mensajes: {vstorage.dbgEmojiRows ?? 0}
-                {"\n"}
-                imágenes reemplazadas: {vstorage.dbgImages ?? 0}
-            </Text>
-            <Text style={[styles.note, { marginTop: 16 }]}>
-                Abrí un chat con emojis y volvé acá: los contadores deberían moverse.
-            </Text>
-        </ScrollView>
-    );
 }
 
-export const Settings = SettingsPanel;
+export function getSettings(): any {
+    if (!SettingsPanel) SettingsPanel = buildSettings();
+    return SettingsPanel;
+}

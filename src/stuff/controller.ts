@@ -1,9 +1,9 @@
-import { storage } from "@vendetta/plugin";
+import { getStorage, reportError } from "./env";
 
 import { convertMessageRows, getChatModule, patchRows } from "./rows";
 import { installImagePatch } from "./images";
 
-export const vstorage = storage as {
+export const vstorage = getStorage() as {
     patchMessages: boolean;
     patchImages: boolean;
     statusChat?: boolean;
@@ -38,27 +38,35 @@ export function applyAll() {
     resetDebug();
 
     if (vstorage.patchMessages !== false) {
-        const mod = getChatModule();
-        if (!mod || typeof mod.updateRows !== "function") {
-            console.warn("[SystemEmojisEverywhere] módulo del chat no encontrado");
-        } else {
-            const rowsPatch = patchRows(rows => {
-                vstorage.dbgRows = (vstorage.dbgRows ?? 0) + 1;
-                vstorage.dbgEmojiRows =
-                    (vstorage.dbgEmojiRows ?? 0) + convertMessageRows(rows);
-            });
-            if (rowsPatch) {
-                unwinds.push(rowsPatch);
-                vstorage.statusChat = true;
+        try {
+            const mod = getChatModule();
+            if (!mod || typeof mod.updateRows !== "function") {
+                reportError("chat", "módulo del chat no encontrado (updateRows ausente)");
+            } else {
+                const rowsPatch = patchRows(rows => {
+                    vstorage.dbgRows = (vstorage.dbgRows ?? 0) + 1;
+                    vstorage.dbgEmojiRows =
+                        (vstorage.dbgEmojiRows ?? 0) + convertMessageRows(rows);
+                });
+                if (rowsPatch) {
+                    unwinds.push(rowsPatch);
+                    vstorage.statusChat = true;
+                }
             }
+        } catch (e) {
+            reportError("capa filas", e);
         }
     }
 
     if (vstorage.patchImages === true) {
-        const img = installImagePatch(() => {
-            vstorage.dbgImages = (vstorage.dbgImages ?? 0) + 1;
-        });
-        unwinds.push(img.unwind);
-        vstorage.statusImages = img.ok;
+        try {
+            const img = installImagePatch(() => {
+                vstorage.dbgImages = (vstorage.dbgImages ?? 0) + 1;
+            });
+            unwinds.push(img.unwind);
+            vstorage.statusImages = img.ok;
+        } catch (e) {
+            reportError("capa imágenes", e);
+        }
     }
 }

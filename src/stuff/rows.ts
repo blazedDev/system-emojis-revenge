@@ -1,4 +1,4 @@
-import { before } from "@vendetta/patcher";
+import { getPatcher } from "./env";
 
 export type ContentRow = {
     type: string;
@@ -81,7 +81,9 @@ export function getChatModule(): any {
 export function patchRows(callback: (rows: any[]) => void): (() => void) | null {
     const mod = getChatModule();
     if (!mod?.updateRows) return null;
-    return before("updateRows", mod, args => {
+    const patcher = getPatcher();
+    if (!patcher?.before || typeof patcher.before !== "function") return null;
+    return patcher.before("updateRows", mod, (args: any[]) => {
         try {
             const rows = JSON.parse(args[1]);
             callback(rows);
