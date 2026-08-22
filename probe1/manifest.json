@@ -1,0 +1,12 @@
+{
+  "name": "SEE Probe 1",
+  "description": "Canary minimo",
+  "authors": [
+    {
+      "name": "vos",
+      "id": "0"
+    }
+  ],
+  "main": "index.js",
+  "hash": "92d16b958cb9f9c4404d6d177fc9056b23548725ef20d93c59b3ab9731c4f41c"
+}
