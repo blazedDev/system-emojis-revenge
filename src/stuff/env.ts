@@ -1,13 +1,18 @@
 // Acceso perezoso y defensivo a la API de vendetta.
 // NADA de esto se ejecuta al evaluar el módulo: todo se resuelve bajo demanda.
 
-// Capturar el parámetro `vendetta` del cargador al inicializar el módulo.
-// En Revenge es un PARÁMETRO de la función contenedora, no un global.
+// Capturar los parámetros del cargador al inicializar el módulo.
 let VD: any;
 try {
     VD = vendetta;
 } catch {
     VD = undefined;
+}
+let BUNNY: any;
+try {
+    BUNNY = bunny;
+} catch {
+    BUNNY = undefined;
 }
 
 export function getVd(): any {
@@ -19,33 +24,73 @@ export function getVd(): any {
     }
 }
 
-export function getRN(): any {
+export function getBunny(): any {
+    if (BUNNY) return BUNNY;
     try {
-        const rn = getVd()?.["metro.common"]?.ReactNative;
-        if (rn) return rn;
-    } catch {}
-    try {
-        return (globalThis as any).ReactNative;
+        return (globalThis as any).bunny;
     } catch {
         return undefined;
     }
+}
+
+export function getRN(): any {
+    const cands = [
+        () => getVd()?.["metro.common"]?.ReactNative,
+        () => getBunny()?.metro?.common?.ReactNative,
+        () => getBunny()?.ReactNative,
+        () => (globalThis as any).ReactNative,
+    ];
+    for (const c of cands) {
+        try {
+            const rn = c();
+            if (rn) return rn;
+        } catch {}
+    }
+    return undefined;
+}
+
+export function getReact(): any {
+    const cands = [
+        () => getVd()?.["metro.common"]?.React,
+        () => getBunny()?.metro?.common?.React,
+        () => getBunny()?.React,
+        () => (globalThis as any).React,
+    ];
+    for (const c of cands) {
+        try {
+            const r = c();
+            if (r) return r;
+        } catch {}
+    }
+    return undefined;
 }
 
 export function getPatcher(): any {
-    try {
-        return getVd()?.patcher ?? getVd()?.["patcher"];
-    } catch {
-        return undefined;
+    const cands = [
+        () => getVd()?.patcher,
+        () => getBunny()?.api?.patcher,
+    ];
+    for (const c of cands) {
+        try {
+            const p = c();
+            if (p?.before) return p;
+        } catch {}
     }
+    return undefined;
 }
 
 export function getToasts(): ((m: string) => void) | null {
-    try {
-        const st = getVd()?.["ui.toasts"]?.showToast;
-        return typeof st === "function" ? (m: string) => st(m) : null;
-    } catch {
-        return null;
+    const cands = [
+        () => getVd()?.["ui.toasts"]?.showToast,
+        () => getBunny()?.ui?.toasts?.showToast,
+    ];
+    for (const c of cands) {
+        try {
+            const st = c();
+            if (typeof st === "function") return (m: string) => st(m);
+        } catch {}
     }
+    return null;
 }
 
 let storageFallback: Record<string, any> | null = null;

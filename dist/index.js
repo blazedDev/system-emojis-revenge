@@ -26,7 +26,8 @@ var __vd_plugin = (() => {
     VERSION: () => VERSION,
     getSettings: () => getSettings,
     onLoad: () => onLoad,
-    onUnload: () => onUnload
+    onUnload: () => onUnload,
+    settings: () => settings
   });
 
   // src/stuff/env.ts
@@ -36,6 +37,12 @@ var __vd_plugin = (() => {
   } catch {
     VD = void 0;
   }
+  var BUNNY;
+  try {
+    BUNNY = bunny;
+  } catch {
+    BUNNY = void 0;
+  }
   function getVd() {
     if (VD) return VD;
     try {
@@ -44,32 +51,73 @@ var __vd_plugin = (() => {
       return void 0;
     }
   }
-  function getRN() {
+  function getBunny() {
+    if (BUNNY) return BUNNY;
     try {
-      const rn = getVd()?.["metro.common"]?.ReactNative;
-      if (rn) return rn;
-    } catch {
-    }
-    try {
-      return globalThis.ReactNative;
+      return globalThis.bunny;
     } catch {
       return void 0;
     }
+  }
+  function getRN() {
+    const cands = [
+      () => getVd()?.["metro.common"]?.ReactNative,
+      () => getBunny()?.metro?.common?.ReactNative,
+      () => getBunny()?.ReactNative,
+      () => globalThis.ReactNative
+    ];
+    for (const c of cands) {
+      try {
+        const rn = c();
+        if (rn) return rn;
+      } catch {
+      }
+    }
+    return void 0;
+  }
+  function getReact() {
+    const cands = [
+      () => getVd()?.["metro.common"]?.React,
+      () => getBunny()?.metro?.common?.React,
+      () => getBunny()?.React,
+      () => globalThis.React
+    ];
+    for (const c of cands) {
+      try {
+        const r = c();
+        if (r) return r;
+      } catch {
+      }
+    }
+    return void 0;
   }
   function getPatcher() {
-    try {
-      return getVd()?.patcher ?? getVd()?.["patcher"];
-    } catch {
-      return void 0;
+    const cands = [
+      () => getVd()?.patcher,
+      () => getBunny()?.api?.patcher
+    ];
+    for (const c of cands) {
+      try {
+        const p = c();
+        if (p?.before) return p;
+      } catch {
+      }
     }
+    return void 0;
   }
   function getToasts() {
-    try {
-      const st = getVd()?.["ui.toasts"]?.showToast;
-      return typeof st === "function" ? (m) => st(m) : null;
-    } catch {
-      return null;
+    const cands = [
+      () => getVd()?.["ui.toasts"]?.showToast,
+      () => getBunny()?.ui?.toasts?.showToast
+    ];
+    for (const c of cands) {
+      try {
+        const st = c();
+        if (typeof st === "function") return (m) => st(m);
+      } catch {
+      }
     }
+    return null;
   }
   var storageFallback = null;
   function getStorage() {
@@ -367,7 +415,7 @@ var __vd_plugin = (() => {
   }
 
   // src/index.tsx
-  var VERSION = "v9";
+  var VERSION = "v10";
   var defaults = {
     patchMessages: true,
     patchImages: false,
@@ -382,10 +430,15 @@ var __vd_plugin = (() => {
     if (vstorage[k] === void 0) vstorage[k] = defaults[k];
   }
   var SettingsPanel = () => null;
+  function getSettingsPanel() {
+    if (!settingsCache) settingsCache = buildSettings();
+    return settingsCache;
+  }
+  var settingsCache = null;
   function buildSettings() {
     try {
       const RN = getRN();
-      const React = getVd()?.["metro.common"]?.React;
+      const React = getReact();
       if (!RN || !React) {
         reportError("ajustes", "ReactNative/React no disponibles");
         return () => null;
@@ -471,7 +524,6 @@ im\xE1genes reemplazadas: ${vstorage.dbgImages ?? 0}`
   }
   function onLoad() {
     try {
-      SettingsPanel = buildSettings();
       applyAll();
       vstorage.errMsg = "";
       toast(`System Emojis ${VERSION}: activo \u2705`);
@@ -493,6 +545,24 @@ im\xE1genes reemplazadas: ${vstorage.dbgImages ?? 0}`
   function getSettings() {
     if (!SettingsPanel) SettingsPanel = buildSettings();
     return SettingsPanel;
+  }
+  function settings(props) {
+    const React = getReact();
+    const C = getSettingsPanel();
+    return React?.createElement ? React.createElement(C, props) : C(props);
+  }
+  try {
+    const instance = {
+      start: onLoad,
+      stop: onUnload,
+      manifest: { name: "System Emojis Everywhere", version: VERSION }
+    };
+    Object.defineProperty(instance, "SettingsComponent", {
+      configurable: true,
+      get: () => getSettingsPanel()
+    });
+    globalThis.plugin = instance;
+  } catch {
   }
   return __toCommonJS(index_exports);
 })();

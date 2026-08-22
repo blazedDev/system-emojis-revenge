@@ -1,7 +1,7 @@
-import { getStorage, getRN, getVd, toast, reportError } from "./stuff/env";
+import { getStorage, getReact, getRN, toast, reportError } from "./stuff/env";
 import { applyAll, unwindAll, resetDebug, vstorage } from "./stuff/controller";
 
-export const VERSION = "v9";
+export const VERSION = "v10";
 
 const defaults: Record<string, any> = {
     patchMessages: true,
@@ -18,11 +18,16 @@ for (const k of Object.keys(defaults)) {
 }
 
 let SettingsPanel: any = () => null;
+function getSettingsPanel(): any {
+    if (!settingsCache) settingsCache = buildSettings();
+    return settingsCache;
+}
+let settingsCache: any = null;
 
 function buildSettings(): any {
     try {
         const RN: any = getRN();
-        const React: any = getVd()?.["metro.common"]?.React;
+        const React: any = getReact();
         if (!RN || !React) {
             reportError("ajustes", "ReactNative/React no disponibles");
             return () => null;
@@ -112,7 +117,6 @@ function buildSettings(): any {
 
 export function onLoad(): void {
     try {
-        SettingsPanel = buildSettings();
         applyAll();
         vstorage.errMsg = "";
         toast(`System Emojis ${VERSION}: activo ✅`);
@@ -136,3 +140,24 @@ export function getSettings(): any {
     if (!SettingsPanel) SettingsPanel = buildSettings();
     return SettingsPanel;
 }
+
+// Export `settings` = componente (contrato vendetta: pluginInstance[id]?.settings)
+export function settings(props?: any): any {
+    const React: any = getReact();
+    const C: any = getSettingsPanel();
+    return React?.createElement ? React.createElement(C, props) : C(props);
+}
+
+// Puente para el sistema bunny: (bunny,definePlugin)=>{...;return plugin?.default ?? plugin}
+try {
+    const instance: any = {
+        start: onLoad,
+        stop: onUnload,
+        manifest: { name: "System Emojis Everywhere", version: VERSION },
+    };
+    Object.defineProperty(instance, "SettingsComponent", {
+        configurable: true,
+        get: () => getSettingsPanel(),
+    });
+    (globalThis as any).plugin = instance;
+} catch {}
