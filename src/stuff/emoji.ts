@@ -1,20 +1,11 @@
-const TEXT_DEFAULT =
-    "[\\u00A9\\u00AE\\u203C\\u2049\\u2122\\u2139\\u2194-\\u21AA\\u24C2\\u25AA\\u25AB\\u25B6\\u25C0\\u25FB-\\u25FE\\u3030\\u303D\\u3297\\u3299]";
+import emojiRegex from "emoji-regex";
 
-const CORE = `(?:[#*0-9]\\uFE0F?\\u20E3|${TEXT_DEFAULT}\\uFE0F|\\p{Extended_Pictographic})(?:\\p{Emoji_Modifier}|\\uFE0F)?`;
-
-const SEQUENCE = `${CORE}(?:\\u200D${CORE})*`;
-const FLAGS = "\\p{Regional_Indicator}\\p{Regional_Indicator}";
-
-export const EMOJI_SOURCE = `(?:${FLAGS}|${SEQUENCE})`;
-
-export const EMOJI_RE = new RegExp(EMOJI_SOURCE, "gu");
+const EMOJI_RE = emojiRegex();
 
 export function isEmojiChar(text: string): boolean {
     if (!text) return false;
-    EMOJI_RE.lastIndex = 0;
     const m = EMOJI_RE.exec(text);
-    return !!m && m[0] === text && m[0].length === text.length;
+    return !!m && m[0] === text;
 }
 
 export function fromCodePoints(cps: string[]): string {
