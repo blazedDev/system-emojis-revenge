@@ -291,7 +291,7 @@ var __vd_plugin = (() => {
 
   // src/index.tsx
   var { View, Text, Switch, StyleSheet, ScrollView } = import_common2.ReactNative;
-  var VERSION = "v6";
+  var VERSION = "v7";
   try {
     (0, import_toasts.showToast)(`System Emojis ${VERSION}: c\xF3digo evaluado \u2705`);
   } catch {
