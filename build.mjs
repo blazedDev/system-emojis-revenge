@@ -35,8 +35,13 @@ await esbuild.build({
     footer: { js: "return __vd_plugin;" },
 });
 
-const js = readFileSync("dist/index.js");
-const hash = createHash("sha256").update(js).digest("hex");
+let js = readFileSync("dist/index.js", "utf8");
+js = js.replace(/^"use strict";\n?/, "");
+// Envolver como EXPRESIÓN única (contrato del cargador): (() => { ... })()
+const wrapped = `(() => {\n"use strict";\n${js}\n})();`;
+writeFileSync("dist/index.js", wrapped);
+
+const hash = createHash("sha256").update(wrapped).digest("hex");
 
 const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
 manifest.main = "index.js";
