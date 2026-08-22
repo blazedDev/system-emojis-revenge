@@ -1,0 +1,14 @@
+{
+  "name": "System Emojis Everywhere",
+  "description": "Usa los emojis del sistema en TODO Discord: mensajes, respuestas, reacciones, embeds y más. Sin puntos ciegos.",
+  "authors": [
+    {
+      "name": "vos",
+      "id": "0"
+    }
+  ],
+  "main": "src/index.tsx",
+  "vendetta": {
+    "icon": "UserCircleIcon"
+  }
+}
