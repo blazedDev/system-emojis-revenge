@@ -1,17 +1,20 @@
 import { React, ReactNative as RN } from "@vendetta/metro/common";
 import { uriToEmoji } from "./emoji";
 
-export function installImagePatch(): { unwind: () => void; ok: boolean } {
+export function installImagePatch(
+    onHit?: () => void,
+): { unwind: () => void; ok: boolean } {
     const OrigImage: any = (RN as any).Image;
     const OrigText: any = (RN as any).Text;
 
-    if (!OrigImage || typeof OrigImage !== "function" && typeof OrigImage !== "object") {
-        return { unwind: () => {}, ok: false };
-    }
+    if (!OrigImage) return { unwind: () => {}, ok: false };
 
     const wrapper = function EmojiAwareImage(props: any) {
         const emoji = uriToEmoji(props?.source?.uri);
         if (emoji) {
+            try {
+                onHit?.();
+            } catch {}
             return React.createElement(
                 OrigText ?? "View",
                 props?.style ? { style: props.style, children: emoji } : { children: emoji },

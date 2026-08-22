@@ -1,4 +1,3 @@
-import { ReactNative as RN } from "@vendetta/metro/common";
 import { before } from "@vendetta/patcher";
 
 export type ContentRow = {
@@ -6,15 +5,27 @@ export type ContentRow = {
     [key: PropertyKey]: any;
 };
 
-function iterateContent(rows: ContentRow[]): ContentRow[] {
+function iterateContent(rows: ContentRow[]): [ContentRow[], number] {
     const out: ContentRow[] = [];
     let header: ContentRow | undefined;
+    let converted = 0;
 
     for (const original of rows) {
         let row = original;
-        if (row?.type === "emoji") row = { type: "text", content: row.surrogate };
-        if ("content" in row && Array.isArray(row.content)) row.content = iterateContent(row.content);
-        if ("items" in row && Array.isArray(row.items)) row.items = iterateContent(row.items);
+        if (row?.type === "emoji") {
+            row = { type: "text", content: row.surrogate };
+            converted++;
+        }
+        if ("content" in row && Array.isArray(row.content)) {
+            const [c, n] = iterateContent(row.content);
+            row.content = c;
+            converted += n;
+        }
+        if ("items" in row && Array.isArray(row.items)) {
+            const [it, n] = iterateContent(row.items);
+            row.items = it;
+            converted += n;
+        }
 
         if ("jumboable" in original && original.jumboable && !header) {
             header = { type: "heading", level: 1, content: [] };
@@ -33,15 +44,19 @@ function iterateContent(rows: ContentRow[]): ContentRow[] {
     }
 
     if (header) out.push(header);
-    return out;
+    return [out, converted];
 }
 
-export function convertMessageRows(rows: any[]) {
+export function convertMessageRows(rows: any[]): number {
+    let converted = 0;
     for (const row of rows) {
         if (row?.type === 1 && row.message?.content) {
-            row.message.content = iterateContent(row.message.content);
+            const [content, n] = iterateContent(row.message.content);
+            row.message.content = content;
+            converted += n;
         }
     }
+    return converted;
 }
 
 function getNativeModule(...names: string[]): any {
