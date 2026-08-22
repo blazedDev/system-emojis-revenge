@@ -1,5 +1,6 @@
 (() => {
 "use strict";
+try {
 var __vd_plugin = (() => {
   var __create = Object.create;
   var __defProp = Object.defineProperty;
@@ -161,11 +162,33 @@ var __vd_plugin = (() => {
   };
 
   // src/stuff/emoji.ts
-  var EMOJI_RE = emoji_regex_default();
+  var cached = null;
+  var fallbackMode = false;
+  function buildRegex() {
+    try {
+      const r = emoji_regex_default();
+      if (r) {
+        r.exec("\u{1F600}");
+        return r;
+      }
+    } catch {
+    }
+    fallbackMode = true;
+    return new RegExp(
+      "(?:[\\uD83C\\uDDE6-\\uD83C\\uDDFF]{2}|[\\uD83C-\\uD83E][\\uDC00-\\uDFFF](?:[\\uFE0F]|\\uD83C[\\uDFFB-\\uDFFF]|\\u200D[\\uD83C-\\uD83E][\\uDC00-\\uDFFF])*|[#*0-9]\\u20E3|[\\u00A9\\u00AE\\u203C\\u2049\\u2122\\u2139\\u2194-\\u21AA\\u231A-\\u231B\\u2328\\u23CF\\u23E9-\\u23FA\\u24C2\\u25AA\\u25AB\\u25B6\\u25C0\\u25FB-\\u25FE\\u2600-\\u27BF\\u2934\\u2935\\u2B00-\\u2B55\\u3030\\u303D\\u3297\\u3299]\\uFE0F?)",
+      "g"
+    );
+  }
+  function getEmojiRe() {
+    if (!cached) cached = buildRegex();
+    cached.lastIndex = 0;
+    return cached;
+  }
   function isEmojiChar(text) {
     if (!text) return false;
-    const m = EMOJI_RE.exec(text);
-    return !!m && m[0] === text;
+    const re = getEmojiRe();
+    const m = re.exec(text);
+    return !!m && m[0] === text && m.index === 0;
   }
   function fromCodePoints(cps) {
     try {
@@ -291,7 +314,7 @@ var __vd_plugin = (() => {
 
   // src/index.tsx
   var { View, Text, Switch, StyleSheet, ScrollView } = import_common2.ReactNative;
-  var VERSION = "v7";
+  var VERSION = "v8";
   try {
     (0, import_toasts.showToast)(`System Emojis ${VERSION}: c\xF3digo evaluado \u2705`);
   } catch {
@@ -371,4 +394,10 @@ var __vd_plugin = (() => {
 })();
 return __vd_plugin;
 
+} catch (e) {
+  try {
+    vendetta["ui.toasts"].showToast("System Emojis ERROR eval: " + String((e && e.stack) || e).slice(0, 150));
+  } catch (_e) {}
+  throw e;
+}
 })();
