@@ -1,5 +1,6 @@
 import esbuild from "esbuild";
-import { mkdirSync, copyFileSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 mkdirSync("dist", { recursive: true });
 
@@ -14,8 +15,12 @@ await esbuild.build({
     external: ["@vendetta/*", "@lib/*", "react", "react-native"],
 });
 
+const js = readFileSync("dist/index.js");
+const hash = createHash("sha256").update(js).digest("hex");
+
 const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
 manifest.main = "index.js";
+manifest.hash = hash;
 writeFileSync("dist/manifest.json", JSON.stringify(manifest, null, 4));
 
-console.log("Build OK -> dist/index.js");
+console.log(`Build OK -> dist/index.js (sha256: ${hash.slice(0, 12)}...)`);

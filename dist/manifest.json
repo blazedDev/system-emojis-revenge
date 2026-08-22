@@ -10,5 +10,6 @@
     "main": "index.js",
     "vendetta": {
         "icon": "UserCircleIcon"
-    }
+    },
+    "hash": "4fd5d4506358f2db15388a1fc5350d225dbd6b4d3565c88a24007e961281424d"
 }
