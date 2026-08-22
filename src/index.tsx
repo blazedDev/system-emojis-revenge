@@ -42,6 +42,10 @@ function SettingsPanel() {
                 />
                 <FormDivider />
                 <FormText>
+                    Estado: chat{" "}
+                    {vstorage.statusChat ? "✅ conectado" : "❌ sin parche"} · imágenes{" "}
+                    {vstorage.statusImages ? "✅ activo" : "❌ inactivo"}
+                    {"\n"}
                     Los emojis personalizados de servidores no se modifican. Si algo queda raro,
                     desactivá y activá el plugin o reiniciá la app.
                 </FormText>

@@ -80,7 +80,7 @@ var __vd_plugin = (() => {
     onLoad: () => onLoad,
     onUnload: () => onUnload
   });
-  var import_common3 = __toESM(require_common(), 1);
+  var import_common2 = __toESM(require_common(), 1);
   var import_components = __toESM(require_components(), 1);
 
   // src/stuff/controller.ts
@@ -89,7 +89,6 @@ var __vd_plugin = (() => {
   var import_assets = __toESM(require_assets(), 1);
 
   // src/stuff/rows.ts
-  var import_common = __toESM(require_common(), 1);
   var import_patcher = __toESM(require_patcher(), 1);
   function iterateContent(rows) {
     const out = [];
@@ -119,9 +118,23 @@ var __vd_plugin = (() => {
       }
     }
   }
+  function getNativeModule(...names) {
+    for (const name of names) {
+      const turbo = globalThis.__turboModuleProxy;
+      if (typeof turbo === "function") {
+        try {
+          const m = turbo(name);
+          if (m) return m;
+        } catch {
+        }
+      }
+      const nmp = globalThis.nativeModuleProxy;
+      if (nmp?.[name]) return nmp[name];
+    }
+    return void 0;
+  }
   function getChatModule() {
-    const nm = import_common.ReactNative?.NativeModules ?? {};
-    return nm.DCDChatManager ?? nm.NativeChatModule ?? null;
+    return getNativeModule("NativeChatModule", "DCDChatManager");
   }
   function patchRows(callback) {
     const mod = getChatModule();
@@ -138,7 +151,7 @@ var __vd_plugin = (() => {
   }
 
   // src/stuff/images.ts
-  var import_common2 = __toESM(require_common(), 1);
+  var import_common = __toESM(require_common(), 1);
 
   // node_modules/emoji-regex/index.mjs
   var emoji_regex_default = () => {
@@ -186,17 +199,21 @@ var __vd_plugin = (() => {
 
   // src/stuff/images.ts
   function installImagePatch() {
-    const OrigImage = import_common2.ReactNative.Image;
-    const OrigText = import_common2.ReactNative.Text;
+    const OrigImage = import_common.ReactNative.Image;
+    const OrigText = import_common.ReactNative.Text;
+    if (!OrigImage || typeof OrigImage !== "function" && typeof OrigImage !== "object") {
+      return { unwind: () => {
+      }, ok: false };
+    }
     const wrapper = function EmojiAwareImage(props) {
       const emoji = uriToEmoji(props?.source?.uri);
       if (emoji) {
-        return import_common2.React.createElement(
+        return import_common.React.createElement(
           OrigText ?? "View",
           props?.style ? { style: props.style, children: emoji } : { children: emoji }
         );
       }
-      return import_common2.React.createElement(OrigImage, props);
+      return import_common.React.createElement(OrigImage, props);
     };
     try {
       for (const key of Object.keys(OrigImage ?? {})) {
@@ -205,17 +222,20 @@ var __vd_plugin = (() => {
         } catch {
         }
       }
-      import_common2.ReactNative.Image = wrapper;
+      import_common.ReactNative.Image = wrapper;
     } catch (e) {
       console.error("[SystemEmojisEverywhere] no se pudo parchear RN.Image:", e?.message);
-      return () => {
-      };
+      return { unwind: () => {
+      }, ok: false };
     }
-    return () => {
-      try {
-        import_common2.ReactNative.Image = OrigImage;
-      } catch {
-      }
+    return {
+      unwind: () => {
+        try {
+          import_common.ReactNative.Image = OrigImage;
+        } catch {
+        }
+      },
+      ok: true
     };
   }
 
@@ -230,13 +250,19 @@ var __vd_plugin = (() => {
       } catch {
       }
     }
+    vstorage.statusChat = false;
+    vstorage.statusImages = false;
   }
   function applyAll() {
     unwindAll();
+    vstorage.statusChat = false;
+    vstorage.statusImages = false;
     if (vstorage.patchMessages !== false) {
       const rowsPatch = patchRows(convertMessageRows);
-      if (rowsPatch) unwinds.push(rowsPatch);
-      else {
+      if (rowsPatch) {
+        unwinds.push(rowsPatch);
+        vstorage.statusChat = true;
+      } else {
         console.warn("[SystemEmojisEverywhere] No se encontr\xF3 el m\xF3dulo nativo del chat");
         (0, import_toasts.showToast)(
           "System Emojis: m\xF3dulo del chat no encontrado",
@@ -245,7 +271,9 @@ var __vd_plugin = (() => {
       }
     }
     if (vstorage.patchImages === true) {
-      unwinds.push(installImagePatch());
+      const img = installImagePatch();
+      unwinds.push(img.unwind);
+      vstorage.statusImages = img.ok;
     }
   }
 
@@ -258,14 +286,14 @@ var __vd_plugin = (() => {
   }
   var onUnload = () => unwindAll();
   function SettingsPanel() {
-    const [, force] = import_common3.React.useState(0);
+    const [, force] = import_common2.React.useState(0);
     const rerender = () => force((x) => x + 1);
     function toggle(key) {
       vstorage[key] = !vstorage[key];
       applyAll();
       rerender();
     }
-    return /* @__PURE__ */ import_common3.React.createElement(import_common3.React.Fragment, null, /* @__PURE__ */ import_common3.React.createElement(FormSection, { title: "Reemplazo" }, /* @__PURE__ */ import_common3.React.createElement(
+    return /* @__PURE__ */ import_common2.React.createElement(import_common2.React.Fragment, null, /* @__PURE__ */ import_common2.React.createElement(FormSection, { title: "Reemplazo" }, /* @__PURE__ */ import_common2.React.createElement(
       FormSwitchRow,
       {
         title: "Mensajes y respuestas",
@@ -273,7 +301,7 @@ var __vd_plugin = (() => {
         value: vstorage.patchMessages,
         onPress: () => toggle("patchMessages")
       }
-    ), /* @__PURE__ */ import_common3.React.createElement(FormDivider, null), /* @__PURE__ */ import_common3.React.createElement(
+    ), /* @__PURE__ */ import_common2.React.createElement(FormDivider, null), /* @__PURE__ */ import_common2.React.createElement(
       FormSwitchRow,
       {
         title: "Embeds, reacciones y m\xE1s (experimental)",
@@ -281,7 +309,7 @@ var __vd_plugin = (() => {
         value: vstorage.patchImages,
         onPress: () => toggle("patchImages")
       }
-    ), /* @__PURE__ */ import_common3.React.createElement(FormDivider, null), /* @__PURE__ */ import_common3.React.createElement(FormText, null, "Los emojis personalizados de servidores no se modifican. Si algo queda raro, desactiv\xE1 y activ\xE1 el plugin o reinici\xE1 la app.")));
+    ), /* @__PURE__ */ import_common2.React.createElement(FormDivider, null), /* @__PURE__ */ import_common2.React.createElement(FormText, null, "Estado: chat", " ", vstorage.statusChat ? "\u2705 conectado" : "\u274C sin parche", " \xB7 im\xE1genes", " ", vstorage.statusImages ? "\u2705 activo" : "\u274C inactivo", "\n", "Los emojis personalizados de servidores no se modifican. Si algo queda raro, desactiv\xE1 y activ\xE1 el plugin o reinici\xE1 la app.")));
   }
   var Settings = SettingsPanel;
   return __toCommonJS(index_exports);

@@ -44,9 +44,23 @@ export function convertMessageRows(rows: any[]) {
     }
 }
 
+function getNativeModule(...names: string[]): any {
+    for (const name of names) {
+        const turbo = (globalThis as any).__turboModuleProxy;
+        if (typeof turbo === "function") {
+            try {
+                const m = turbo(name);
+                if (m) return m;
+            } catch {}
+        }
+        const nmp = (globalThis as any).nativeModuleProxy;
+        if (nmp?.[name]) return nmp[name];
+    }
+    return undefined;
+}
+
 export function getChatModule(): any {
-    const nm: any = (RN as any)?.NativeModules ?? {};
-    return nm.DCDChatManager ?? nm.NativeChatModule ?? null;
+    return getNativeModule("NativeChatModule", "DCDChatManager");
 }
 
 export function patchRows(callback: (rows: any[]) => void): (() => void) | null {

@@ -8,6 +8,8 @@ import { installImagePatch } from "./images";
 export const vstorage = storage as {
     patchMessages: boolean;
     patchImages: boolean;
+    statusChat?: boolean;
+    statusImages?: boolean;
 };
 
 const unwinds: (() => void)[] = [];
@@ -19,15 +21,21 @@ export function unwindAll() {
             u();
         } catch {}
     }
+    vstorage.statusChat = false;
+    vstorage.statusImages = false;
 }
 
 export function applyAll() {
     unwindAll();
+    vstorage.statusChat = false;
+    vstorage.statusImages = false;
 
     if (vstorage.patchMessages !== false) {
         const rowsPatch = patchRows(convertMessageRows);
-        if (rowsPatch) unwinds.push(rowsPatch);
-        else {
+        if (rowsPatch) {
+            unwinds.push(rowsPatch);
+            vstorage.statusChat = true;
+        } else {
             console.warn("[SystemEmojisEverywhere] No se encontró el módulo nativo del chat");
             showToast(
                 "System Emojis: módulo del chat no encontrado",
@@ -37,11 +45,8 @@ export function applyAll() {
     }
 
     if (vstorage.patchImages === true) {
-        unwinds.push(installImagePatch());
+        const img = installImagePatch();
+        unwinds.push(img.unwind);
+        vstorage.statusImages = img.ok;
     }
-}
-
-export function defaults() {
-    if (typeof vstorage.patchMessages !== "boolean") vstorage.patchMessages = true;
-    if (typeof vstorage.patchImages !== "boolean") vstorage.patchImages = true;
 }
