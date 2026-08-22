@@ -1,16 +1,21 @@
-import { getRN, getVd, reportError } from "./env";
+import { getRN, getReact, reportError } from "./env";
 import { uriToEmoji } from "./emoji";
 
 export function installImagePatch(
     onHit?: () => void,
 ): { unwind: () => void; ok: boolean } {
     const RN: any = getRN();
-    const React = getVd()?.["metro.common"]?.React;
+    const React: any = getReact();
     const OrigImage: any = RN?.Image;
     const OrigText: any = RN?.Text;
 
-    if (!OrigImage || !React) {
-        reportError("imágenes", "RN.Image o React no disponibles");
+    if (!RN || !React || !OrigImage) {
+        reportError(
+            "imágenes",
+            "faltan componentes: "
+            + [RN ? "" : "ReactNative", OrigImage ? "" : "RN.Image", React ? "" : "React"]
+                .filter(Boolean).join(", "),
+        );
         return { unwind: () => {}, ok: false };
     }
 

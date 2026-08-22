@@ -314,11 +314,14 @@ var __vd_plugin = (() => {
   // src/stuff/images.ts
   function installImagePatch(onHit) {
     const RN = getRN();
-    const React = getVd()?.["metro.common"]?.React;
+    const React = getReact();
     const OrigImage = RN?.Image;
     const OrigText = RN?.Text;
-    if (!OrigImage || !React) {
-      reportError("im\xE1genes", "RN.Image o React no disponibles");
+    if (!RN || !React || !OrigImage) {
+      reportError(
+        "im\xE1genes",
+        "faltan componentes: " + [RN ? "" : "ReactNative", OrigImage ? "" : "RN.Image", React ? "" : "React"].filter(Boolean).join(", ")
+      );
       return { unwind: () => {
       }, ok: false };
     }
@@ -362,6 +365,15 @@ var __vd_plugin = (() => {
 
   // src/stuff/controller.ts
   var vstorage = getStorage();
+  var counters = { rows: 0, emoji: 0, imgs: 0 };
+  function syncCounters() {
+    try {
+      vstorage.dbgRows = counters.rows;
+      vstorage.dbgEmojiRows = counters.emoji;
+      vstorage.dbgImages = counters.imgs;
+    } catch {
+    }
+  }
   var unwinds = [];
   function unwindAll() {
     let u;
@@ -373,9 +385,10 @@ var __vd_plugin = (() => {
     }
   }
   function resetDebug() {
-    vstorage.dbgRows = 0;
-    vstorage.dbgEmojiRows = 0;
-    vstorage.dbgImages = 0;
+    counters.rows = 0;
+    counters.emoji = 0;
+    counters.imgs = 0;
+    syncCounters();
   }
   function applyAll() {
     unwindAll();
@@ -389,8 +402,9 @@ var __vd_plugin = (() => {
           reportError("chat", "m\xF3dulo del chat no encontrado (updateRows ausente)");
         } else {
           const rowsPatch = patchRows((rows) => {
-            vstorage.dbgRows = (vstorage.dbgRows ?? 0) + 1;
-            vstorage.dbgEmojiRows = (vstorage.dbgEmojiRows ?? 0) + convertMessageRows(rows);
+            counters.rows++;
+            counters.emoji += convertMessageRows(rows);
+            syncCounters();
           });
           if (rowsPatch) {
             unwinds.push(rowsPatch);
@@ -404,7 +418,8 @@ var __vd_plugin = (() => {
     if (vstorage.patchImages === true) {
       try {
         const img = installImagePatch(() => {
-          vstorage.dbgImages = (vstorage.dbgImages ?? 0) + 1;
+          counters.imgs++;
+          syncCounters();
         });
         unwinds.push(img.unwind);
         vstorage.statusImages = img.ok;
@@ -415,7 +430,7 @@ var __vd_plugin = (() => {
   }
 
   // src/index.tsx
-  var VERSION = "v10";
+  var VERSION = "v11";
   var defaults = {
     patchMessages: true,
     patchImages: false,
@@ -502,9 +517,9 @@ var __vd_plugin = (() => {
             { style: styles.mono },
             `chat conectado: ${vstorage.statusChat ? "s\xED" : "no"}
 im\xE1genes parcheadas: ${vstorage.statusImages ? "s\xED" : "no"}
-updateRows llamado: ${vstorage.dbgRows ?? 0}
-emojis convertidos: ${vstorage.dbgEmojiRows ?? 0}
-im\xE1genes reemplazadas: ${vstorage.dbgImages ?? 0}`
+updateRows llamado: ${counters.rows}
+emojis convertidos: ${counters.emoji}
+im\xE1genes reemplazadas: ${counters.imgs}`
           ),
           vstorage.errMsg ? React.createElement(Text, { style: styles.err }, String(vstorage.errMsg)) : null,
           React.createElement(

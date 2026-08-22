@@ -14,6 +14,17 @@ export const vstorage = getStorage() as {
     errMsg?: string;
 };
 
+// Contadores internos (independientes del storage, siempre fiables)
+export const counters = { rows: 0, emoji: 0, imgs: 0 };
+
+function syncCounters() {
+    try {
+        vstorage.dbgRows = counters.rows;
+        vstorage.dbgEmojiRows = counters.emoji;
+        vstorage.dbgImages = counters.imgs;
+    } catch {}
+}
+
 const unwinds: (() => void)[] = [];
 
 export function unwindAll() {
@@ -26,9 +37,10 @@ export function unwindAll() {
 }
 
 export function resetDebug() {
-    vstorage.dbgRows = 0;
-    vstorage.dbgEmojiRows = 0;
-    vstorage.dbgImages = 0;
+    counters.rows = 0;
+    counters.emoji = 0;
+    counters.imgs = 0;
+    syncCounters();
 }
 
 export function applyAll() {
@@ -44,9 +56,9 @@ export function applyAll() {
                 reportError("chat", "módulo del chat no encontrado (updateRows ausente)");
             } else {
                 const rowsPatch = patchRows(rows => {
-                    vstorage.dbgRows = (vstorage.dbgRows ?? 0) + 1;
-                    vstorage.dbgEmojiRows =
-                        (vstorage.dbgEmojiRows ?? 0) + convertMessageRows(rows);
+                    counters.rows++;
+                    counters.emoji += convertMessageRows(rows);
+                    syncCounters();
                 });
                 if (rowsPatch) {
                     unwinds.push(rowsPatch);
@@ -61,7 +73,8 @@ export function applyAll() {
     if (vstorage.patchImages === true) {
         try {
             const img = installImagePatch(() => {
-                vstorage.dbgImages = (vstorage.dbgImages ?? 0) + 1;
+                counters.imgs++;
+                syncCounters();
             });
             unwinds.push(img.unwind);
             vstorage.statusImages = img.ok;

@@ -1,7 +1,7 @@
 import { getStorage, getReact, getRN, toast, reportError } from "./stuff/env";
-import { applyAll, unwindAll, resetDebug, vstorage } from "./stuff/controller";
+import { applyAll, unwindAll, resetDebug, vstorage, counters } from "./stuff/controller";
 
-export const VERSION = "v10";
+export const VERSION = "v11";
 
 const defaults: Record<string, any> = {
     patchMessages: true,
@@ -95,9 +95,9 @@ function buildSettings(): any {
                     { style: styles.mono },
                     `chat conectado: ${vstorage.statusChat ? "sí" : "no"}`
                     + `\nimágenes parcheadas: ${vstorage.statusImages ? "sí" : "no"}`
-                    + `\nupdateRows llamado: ${vstorage.dbgRows ?? 0}`
-                    + `\nemojis convertidos: ${vstorage.dbgEmojiRows ?? 0}`
-                    + `\nimágenes reemplazadas: ${vstorage.dbgImages ?? 0}`,
+                    + `\nupdateRows llamado: ${counters.rows}`
+                    + `\nemojis convertidos: ${counters.emoji}`
+                    + `\nimágenes reemplazadas: ${counters.imgs}`,
                 ),
                 vstorage.errMsg
                     ? React.createElement(Text, { style: styles.err }, String(vstorage.errMsg))
