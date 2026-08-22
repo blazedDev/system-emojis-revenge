@@ -1,3 +1,4 @@
+(() => {
 "use strict";
 var __vd_plugin = (() => {
   var __create = Object.create;
@@ -369,3 +370,5 @@ var __vd_plugin = (() => {
   return __toCommonJS(index_exports);
 })();
 return __vd_plugin;
+
+})();
