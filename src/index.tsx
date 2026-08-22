@@ -1,14 +1,31 @@
 import { React, ReactNative as RN } from "@vendetta/metro/common";
 import { storage } from "@vendetta/plugin";
+import { showToast } from "@vendetta/ui/toasts";
 
 import { applyAll, unwindAll, vstorage } from "./stuff/controller";
 
 const { View, Text, Switch, StyleSheet, ScrollView } = RN as any;
 
+export const VERSION = "v6";
+
+try {
+    showToast(`System Emojis ${VERSION}: código evaluado ✅`);
+} catch {}
+
 export function onLoad() {
-    if (typeof vstorage.patchMessages !== "boolean") vstorage.patchMessages = true;
-    if (typeof vstorage.patchImages !== "boolean") vstorage.patchImages = true;
-    applyAll();
+    try {
+        if (typeof vstorage.patchMessages !== "boolean") vstorage.patchMessages = true;
+        if (typeof vstorage.patchImages !== "boolean") vstorage.patchImages = true;
+        applyAll();
+        vstorage.errMsg = undefined;
+        showToast(`System Emojis ${VERSION}: parches aplicados ✅`);
+    } catch (e: any) {
+        vstorage.errMsg = String(e?.stack ?? e);
+        try {
+            showToast(`System Emojis ERROR: ${vstorage.errMsg.slice(0, 120)}`);
+        } catch {}
+        throw e;
+    }
 }
 
 export const onUnload = () => unwindAll();
@@ -35,6 +52,7 @@ const styles = StyleSheet.create({
         textTransform: "uppercase",
     },
     note: { fontSize: 13, color: "#b5bac1", paddingHorizontal: 16, lineHeight: 19 },
+    err: { fontSize: 12, color: "#f23f42", paddingHorizontal: 16, marginTop: 8 },
 });
 
 function Row(props: { title: string; sub?: string; value: boolean; onChange: () => void }) {
@@ -61,7 +79,10 @@ function SettingsPanel() {
 
     return (
         <ScrollView style={styles.wrap}>
-            <Text style={styles.section}>Reemplazo</Text>
+            <Text style={styles.section}>System Emojis Everywhere · {VERSION}</Text>
+            {!!vstorage.errMsg && (
+                <Text style={styles.err}>ERROR: {vstorage.errMsg}</Text>
+            )}
             <Row
                 title="Mensajes y respuestas"
                 sub="Convierte los Twemoji del chat a emojis del sistema"
@@ -85,11 +106,10 @@ function SettingsPanel() {
                 {"\n"}
                 emojis convertidos en mensajes: {vstorage.dbgEmojiRows ?? 0}
                 {"\n"}
-                imágenes de emoji reemplazadas: {vstorage.dbgImages ?? 0}
+                imágenes reemplazadas: {vstorage.dbgImages ?? 0}
             </Text>
             <Text style={[styles.note, { marginTop: 16 }]}>
-                Los emojis personalizados de servidores no se modifican. Abrí un chat con emojis y
-                volvé acá para ver los contadores moverse.
+                Abrí un chat con emojis y volvé acá: los contadores deberían moverse.
             </Text>
         </ScrollView>
     );

@@ -38,6 +38,13 @@ var __vd_plugin = (() => {
     }
   });
 
+  // vd-shim:@vendetta/ui/toasts
+  var require_toasts = __commonJS({
+    "vd-shim:@vendetta/ui/toasts"(exports, module) {
+      module.exports = vendetta["ui.toasts"];
+    }
+  });
+
   // vd-shim:@vendetta/plugin
   var require_plugin = __commonJS({
     "vd-shim:@vendetta/plugin"(exports, module) {
@@ -56,10 +63,12 @@ var __vd_plugin = (() => {
   var index_exports = {};
   __export(index_exports, {
     Settings: () => Settings,
+    VERSION: () => VERSION,
     onLoad: () => onLoad,
     onUnload: () => onUnload
   });
   var import_common2 = __toESM(require_common(), 1);
+  var import_toasts = __toESM(require_toasts(), 1);
 
   // src/stuff/controller.ts
   var import_plugin = __toESM(require_plugin(), 1);
@@ -281,10 +290,26 @@ var __vd_plugin = (() => {
 
   // src/index.tsx
   var { View, Text, Switch, StyleSheet, ScrollView } = import_common2.ReactNative;
+  var VERSION = "v6";
+  try {
+    (0, import_toasts.showToast)(`System Emojis ${VERSION}: c\xF3digo evaluado \u2705`);
+  } catch {
+  }
   function onLoad() {
-    if (typeof vstorage.patchMessages !== "boolean") vstorage.patchMessages = true;
-    if (typeof vstorage.patchImages !== "boolean") vstorage.patchImages = true;
-    applyAll();
+    try {
+      if (typeof vstorage.patchMessages !== "boolean") vstorage.patchMessages = true;
+      if (typeof vstorage.patchImages !== "boolean") vstorage.patchImages = true;
+      applyAll();
+      vstorage.errMsg = void 0;
+      (0, import_toasts.showToast)(`System Emojis ${VERSION}: parches aplicados \u2705`);
+    } catch (e) {
+      vstorage.errMsg = String(e?.stack ?? e);
+      try {
+        (0, import_toasts.showToast)(`System Emojis ERROR: ${vstorage.errMsg.slice(0, 120)}`);
+      } catch {
+      }
+      throw e;
+    }
   }
   var onUnload = () => unwindAll();
   var styles = StyleSheet.create({
@@ -308,7 +333,8 @@ var __vd_plugin = (() => {
       paddingBottom: 6,
       textTransform: "uppercase"
     },
-    note: { fontSize: 13, color: "#b5bac1", paddingHorizontal: 16, lineHeight: 19 }
+    note: { fontSize: 13, color: "#b5bac1", paddingHorizontal: 16, lineHeight: 19 },
+    err: { fontSize: 12, color: "#f23f42", paddingHorizontal: 16, marginTop: 8 }
   });
   function Row(props) {
     return /* @__PURE__ */ import_common2.React.createElement(View, { style: styles.row }, /* @__PURE__ */ import_common2.React.createElement(View, { style: { flex: 1 } }, /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.title }, props.title), props.sub ? /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.sub }, props.sub) : null), /* @__PURE__ */ import_common2.React.createElement(Switch, { value: props.value, onValueChange: props.onChange }));
@@ -321,7 +347,7 @@ var __vd_plugin = (() => {
       applyAll();
       rerender();
     }
-    return /* @__PURE__ */ import_common2.React.createElement(ScrollView, { style: styles.wrap }, /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.section }, "Reemplazo"), /* @__PURE__ */ import_common2.React.createElement(
+    return /* @__PURE__ */ import_common2.React.createElement(ScrollView, { style: styles.wrap }, /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.section }, "System Emojis Everywhere \xB7 ", VERSION), !!vstorage.errMsg && /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.err }, "ERROR: ", vstorage.errMsg), /* @__PURE__ */ import_common2.React.createElement(
       Row,
       {
         title: "Mensajes y respuestas",
@@ -337,7 +363,7 @@ var __vd_plugin = (() => {
         value: vstorage.patchImages,
         onChange: () => toggle("patchImages")
       }
-    ), /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.section }, "Diagn\xF3stico"), /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.note }, "chat conectado: ", vstorage.statusChat ? "s\xED" : "no", "\n", "parche de im\xE1genes activo: ", vstorage.statusImages ? "s\xED" : "no", "\n", "updateRows llamado: ", vstorage.dbgRows ?? 0, "\n", "emojis convertidos en mensajes: ", vstorage.dbgEmojiRows ?? 0, "\n", "im\xE1genes de emoji reemplazadas: ", vstorage.dbgImages ?? 0), /* @__PURE__ */ import_common2.React.createElement(Text, { style: [styles.note, { marginTop: 16 }] }, "Los emojis personalizados de servidores no se modifican. Abr\xED un chat con emojis y volv\xE9 ac\xE1 para ver los contadores moverse."));
+    ), /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.section }, "Diagn\xF3stico"), /* @__PURE__ */ import_common2.React.createElement(Text, { style: styles.note }, "chat conectado: ", vstorage.statusChat ? "s\xED" : "no", "\n", "parche de im\xE1genes activo: ", vstorage.statusImages ? "s\xED" : "no", "\n", "updateRows llamado: ", vstorage.dbgRows ?? 0, "\n", "emojis convertidos en mensajes: ", vstorage.dbgEmojiRows ?? 0, "\n", "im\xE1genes reemplazadas: ", vstorage.dbgImages ?? 0), /* @__PURE__ */ import_common2.React.createElement(Text, { style: [styles.note, { marginTop: 16 }] }, "Abr\xED un chat con emojis y volv\xE9 ac\xE1: los contadores deber\xEDan moverse."));
   }
   var Settings = SettingsPanel;
   return __toCommonJS(index_exports);

@@ -11,6 +11,7 @@ export const vstorage = storage as {
     dbgRows?: number;
     dbgEmojiRows?: number;
     dbgImages?: number;
+    errMsg?: string;
 };
 
 const unwinds: (() => void)[] = [];
