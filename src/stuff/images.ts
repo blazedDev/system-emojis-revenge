@@ -1,5 +1,5 @@
 import { getRN, getReact } from "./env";
-import { uriToEmoji } from "./emoji";
+import { uriToEmoji, appleUrlFromEmoji } from "./emoji";
 
 export function installImagePatch(
     onHit?: () => void,
@@ -7,7 +7,6 @@ export function installImagePatch(
     const RN: any = getRN();
     const React: any = getReact();
     const OrigImage: any = RN?.Image;
-    const OrigText: any = RN?.Text;
 
     if (!RN || !React || !OrigImage) {
         return {
@@ -20,16 +19,19 @@ export function installImagePatch(
     }
 
     const wrapper = function EmojiAwareImage(props: any) {
-        const emoji = uriToEmoji(props?.source?.uri);
-        if (emoji) {
-            try {
-                onHit?.();
-            } catch {}
-            return React.createElement(
-                OrigText ?? "View",
-                props?.style ? { style: props.style, children: emoji } : { children: emoji },
-            );
-        }
+        try {
+            const emoji = uriToEmoji(props?.source?.uri);
+            const appleUri = emoji ? appleUrlFromEmoji(emoji) : null;
+            if (appleUri && appleUri !== props.source.uri) {
+                try {
+                    onHit?.();
+                } catch {}
+                return React.createElement(OrigImage, {
+                    ...props,
+                    source: { ...(props.source ?? {}), uri: appleUri },
+                });
+            }
+        } catch {}
         return React.createElement(OrigImage, props);
     };
 

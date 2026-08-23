@@ -48,6 +48,67 @@ export function fromCodePoints(cps: string[]): string {
     }
 }
 
+// CDN de imágenes estilo Apple/iOS (paquete emoji-datasource-apple)
+const APPLE_BASE = "https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.1.2/img/apple/64/";
+
+export function appleUrlFromEmoji(emoji: string): string | null {
+    if (!emoji || !isEmojiChar(emoji)) return null;
+    try {
+        const cps = Array.from(emoji).map(c => c.codePointAt(0)!.toString(16));
+        if (!cps.length || cps.length > 14) return null;
+        return APPLE_BASE + cps.join("-") + ".png";
+    } catch {
+        return null;
+    }
+}
+
+const URL_IN_STR = /https?:\/\/[^\s"'<>)]+/g;
+
+const ASSET_IN_STR = /asset:\/emoji-[0-9a-fA-F](?:[0-9a-fA-F-]*[0-9a-fA-F])?(?:\.png|\.webp)?/g;
+
+export function iosizeString(s: string): string {
+    if (typeof s !== "string") return s;
+    try {
+        if (s.startsWith("asset:/emoji-")) {
+            const a = appleUrlFromEmoji(uriToEmoji(s) ?? "");
+            return a ?? s;
+        }
+        if (s.indexOf("http") === -1 && s.indexOf("asset:/") === -1) return s;
+        return s
+            .replace(URL_IN_STR, u => {
+                const e = uriToEmoji(u);
+                if (!e) return u;
+                return appleUrlFromEmoji(e) ?? u;
+            })
+            .replace(ASSET_IN_STR, m => {
+                const e = uriToEmoji(m);
+                if (!e) return m;
+                return appleUrlFromEmoji(e) ?? m;
+            });
+    } catch {
+        return s;
+    }
+}
+
+export function walkStrings(v: any, depth: number): void {
+    if (depth > 8 || v == null) return;
+    const t = typeof v;
+    if (t === "string") return;
+    if (t !== "object") return;
+    if (Array.isArray(v)) {
+        for (let i = 0; i < v.length; i++) {
+            if (typeof v[i] === "string") v[i] = iosizeString(v[i]);
+            else walkStrings(v[i], depth + 1);
+        }
+        return;
+    }
+    for (const k of Object.keys(v)) {
+        const val = v[k];
+        if (typeof val === "string") v[k] = iosizeString(val);
+        else walkStrings(val, depth + 1);
+    }
+}
+
 const HEX_TOKEN = /^[0-9a-f]{1,7}$/i;
 
 const EMOJI_URI_HOSTS = new RegExp(

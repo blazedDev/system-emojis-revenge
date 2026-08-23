@@ -1,4 +1,5 @@
 import { getPatcher } from "./env";
+import { walkStrings } from "./emoji";
 
 export type ContentRow = {
     type: string;
@@ -47,13 +48,19 @@ function iterateContent(rows: ContentRow[]): [ContentRow[], number] {
     return [out, converted];
 }
 
-export function convertMessageRows(rows: any[]): number {
+export function convertMessageRows(rows: any[], mode?: string): number {
     let converted = 0;
     for (const row of rows) {
         if (row?.type === 1 && row.message?.content) {
-            const [content, n] = iterateContent(row.message.content);
-            row.message.content = content;
-            converted += n;
+            if (mode === "ios") {
+                // iOS: conservar filas emoji, reescribir URLs de assets a Apple
+                walkStrings(row.message, 0);
+                converted++;
+            } else {
+                const [content, n] = iterateContent(row.message.content);
+                row.message.content = content;
+                converted += n;
+            }
         }
     }
     return converted;

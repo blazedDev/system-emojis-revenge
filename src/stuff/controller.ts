@@ -7,7 +7,22 @@ import { installImagePatch } from "./images";
 export const vstorage = getStorage() as {
     patchMessages?: boolean;
     patchImages?: boolean;
+    mode?: string;
 };
+
+export function getMode(): string {
+    try {
+        return vstorage.mode === "system" ? "system" : "ios";
+    } catch {
+        return "ios";
+    }
+}
+
+export function setMode(m: string) {
+    try {
+        vstorage.mode = m;
+    } catch {}
+}
 
 export function getPatchMessages(): boolean {
     try {
@@ -19,9 +34,9 @@ export function getPatchMessages(): boolean {
 
 export function getPatchImages(): boolean {
     try {
-        return vstorage.patchImages === true;
+        return vstorage.patchImages !== false;
     } catch {
-        return false;
+        return true;
     }
 }
 
@@ -70,7 +85,7 @@ export function applyAll() {
         } else {
             const rowsPatch = patchRows(rows => {
                 counters.rows++;
-                counters.emoji += convertMessageRows(rows);
+                counters.emoji += convertMessageRows(rows, getMode());
             });
             if (rowsPatch) {
                 unwinds.push(rowsPatch);

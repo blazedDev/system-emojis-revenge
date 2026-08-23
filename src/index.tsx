@@ -1,7 +1,7 @@
 import { getStorage, getReact, getRN, toast, reportError } from "./stuff/env";
-import { applyAll, unwindAll, resetDebug, getPatchMessages, getPatchImages, setFlag, state, counters } from "./stuff/controller";
+import { applyAll, unwindAll, resetDebug, getPatchMessages, getPatchImages, setFlag, getMode, setMode, state, counters } from "./stuff/controller";
 
-export const VERSION = "v12";
+export const VERSION = "v13";
 
 let SettingsPanel: any = () => null;
 function getSettingsPanel(): any {
@@ -27,6 +27,16 @@ function buildSettings(): any {
             title: { fontSize: 15, fontWeight: "700" },
             sub: { fontSize: 13, opacity: 0.7 },
             mono: { fontFamily: "monospace", fontSize: 11, opacity: 0.8 },
+            pill: {
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: "#5865f2",
+                marginHorizontal: 3,
+            },
+            pillOn: { backgroundColor: "#5865f2" },
+            pillTxt: { color: "#fff", fontSize: 13 },
             err: { color: "#ff5252", fontSize: 12 },
         });
 
@@ -56,7 +66,7 @@ function buildSettings(): any {
                 React.createElement(
                     Text,
                     { style: styles.sub },
-                    "Reemplaza Twemoji por los emojis de tu sistema.",
+                    "Reemplaza los Twemoji de Discord por emojis de iOS (o del sistema).",
                 ),
                 React.createElement(Toggle, {
                     label: "Mensajes (filas del chat)",
@@ -67,8 +77,33 @@ function buildSettings(): any {
                         rerender();
                     },
                 }),
+                React.createElement(
+                    View,
+                    { style: styles.row },
+                    React.createElement(
+                        Text,
+                        { style: { flex: 1 } },
+                        "Estilo:",
+                    ),
+                    React.createElement(
+                        Text,
+                        {
+                            style: [styles.pill, styles.pillTxt, getMode() === "ios" ? styles.pillOn : null],
+                            onPress: () => { setMode("ios"); try { applyAll(); } catch {} rerender(); },
+                        },
+                        " iOS ",
+                    ),
+                    React.createElement(
+                        Text,
+                        {
+                            style: [styles.pill, styles.pillTxt, getMode() === "system" ? styles.pillOn : null],
+                            onPress: () => { setMode("system"); try { applyAll(); } catch {} rerender(); },
+                        },
+                        " Sistema ",
+                    ),
+                ),
                 React.createElement(Toggle, {
-                    label: "Imágenes (avatares/reacciones)",
+                    label: "Imágenes (reacciones/embeds → Apple) [recomendado]",
                     value: getPatchImages(),
                     onChange: (v: boolean) => {
                         setFlag("patchImages", v);
