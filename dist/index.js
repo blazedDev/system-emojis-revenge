@@ -318,12 +318,12 @@ var __vd_plugin = (() => {
     const OrigImage = RN?.Image;
     const OrigText = RN?.Text;
     if (!RN || !React || !OrigImage) {
-      reportError(
-        "im\xE1genes",
-        "faltan componentes: " + [RN ? "" : "ReactNative", OrigImage ? "" : "RN.Image", React ? "" : "React"].filter(Boolean).join(", ")
-      );
-      return { unwind: () => {
-      }, ok: false };
+      return {
+        unwind: () => {
+        },
+        ok: false,
+        msg: "faltan: " + [RN ? "" : "RN", OrigImage ? "" : "Image", React ? "" : "React"].filter(Boolean).join(", ")
+      };
     }
     const wrapper = function EmojiAwareImage(props) {
       const emoji = uriToEmoji(props?.source?.uri);
@@ -339,24 +339,44 @@ var __vd_plugin = (() => {
       }
       return React.createElement(OrigImage, props);
     };
+    let installed = false;
     try {
-      for (const key of Object.keys(OrigImage ?? {})) {
-        try {
-          Object.defineProperty(wrapper, key, Object.getOwnPropertyDescriptor(OrigImage, key));
-        } catch {
-        }
-      }
       RN.Image = wrapper;
-    } catch (e) {
-      reportError("im\xE1genes", e);
-      return { unwind: () => {
-      }, ok: false };
+      installed = RN.Image === wrapper;
+    } catch {
+    }
+    if (!installed) {
+      try {
+        Object.defineProperty(RN, "Image", {
+          value: wrapper,
+          writable: true,
+          configurable: true
+        });
+        installed = RN.Image === wrapper;
+      } catch {
+      }
+    }
+    if (!installed) {
+      return {
+        unwind: () => {
+        },
+        ok: false,
+        msg: "RN.Image es de solo lectura en tu build"
+      };
     }
     return {
       unwind: () => {
         try {
           RN.Image = OrigImage;
         } catch {
+          try {
+            Object.defineProperty(RN, "Image", {
+              value: OrigImage,
+              writable: true,
+              configurable: true
+            });
+          } catch {
+          }
         }
       },
       ok: true
@@ -365,15 +385,32 @@ var __vd_plugin = (() => {
 
   // src/stuff/controller.ts
   var vstorage = getStorage();
-  var counters = { rows: 0, emoji: 0, imgs: 0 };
-  function syncCounters() {
+  function getPatchMessages() {
     try {
-      vstorage.dbgRows = counters.rows;
-      vstorage.dbgEmojiRows = counters.emoji;
-      vstorage.dbgImages = counters.imgs;
+      return vstorage.patchMessages !== false;
+    } catch {
+      return true;
+    }
+  }
+  function getPatchImages() {
+    try {
+      return vstorage.patchImages === true;
+    } catch {
+      return false;
+    }
+  }
+  function setFlag(key, v) {
+    try {
+      vstorage[key] = v;
     } catch {
     }
   }
+  var state = {
+    chat: false,
+    images: false,
+    err: ""
+  };
+  var counters = { rows: 0, emoji: 0, imgs: 0 };
   var unwinds = [];
   function unwindAll() {
     let u;
@@ -388,62 +425,39 @@ var __vd_plugin = (() => {
     counters.rows = 0;
     counters.emoji = 0;
     counters.imgs = 0;
-    syncCounters();
   }
   function applyAll() {
     unwindAll();
-    vstorage.statusChat = false;
-    vstorage.statusImages = false;
+    state.chat = false;
+    state.images = false;
     resetDebug();
-    if (vstorage.patchMessages !== false) {
-      try {
-        const mod = getChatModule();
-        if (!mod || typeof mod.updateRows !== "function") {
-          reportError("chat", "m\xF3dulo del chat no encontrado (updateRows ausente)");
-        } else {
-          const rowsPatch = patchRows((rows) => {
-            counters.rows++;
-            counters.emoji += convertMessageRows(rows);
-            syncCounters();
-          });
-          if (rowsPatch) {
-            unwinds.push(rowsPatch);
-            vstorage.statusChat = true;
-          }
+    if (getPatchMessages()) {
+      const mod = getChatModule();
+      if (!mod || typeof mod.updateRows !== "function") {
+        console.warn("[SystemEmojisEverywhere] m\xF3dulo del chat no encontrado");
+      } else {
+        const rowsPatch = patchRows((rows) => {
+          counters.rows++;
+          counters.emoji += convertMessageRows(rows);
+        });
+        if (rowsPatch) {
+          unwinds.push(rowsPatch);
+          state.chat = true;
         }
-      } catch (e) {
-        reportError("capa filas", e);
       }
     }
-    if (vstorage.patchImages === true) {
-      try {
-        const img = installImagePatch(() => {
-          counters.imgs++;
-          syncCounters();
-        });
-        unwinds.push(img.unwind);
-        vstorage.statusImages = img.ok;
-      } catch (e) {
-        reportError("capa im\xE1genes", e);
-      }
+    if (getPatchImages()) {
+      const img = installImagePatch(() => {
+        counters.imgs++;
+      });
+      unwinds.push(img.unwind);
+      state.images = img.ok;
+      state.err = img.ok ? "" : `im\xE1genes: ${img.msg ?? "no disponible"}`;
     }
   }
 
   // src/index.tsx
-  var VERSION = "v11";
-  var defaults = {
-    patchMessages: true,
-    patchImages: false,
-    statusChat: false,
-    statusImages: false,
-    dbgRows: 0,
-    dbgEmojiRows: 0,
-    dbgImages: 0,
-    errMsg: ""
-  };
-  for (const k of Object.keys(defaults)) {
-    if (vstorage[k] === void 0) vstorage[k] = defaults[k];
-  }
+  var VERSION = "v12";
   var SettingsPanel = () => null;
   function getSettingsPanel() {
     if (!settingsCache) settingsCache = buildSettings();
@@ -496,32 +510,38 @@ var __vd_plugin = (() => {
           ),
           React.createElement(Toggle, {
             label: "Mensajes (filas del chat)",
-            value: vstorage.patchMessages !== false,
+            value: getPatchMessages(),
             onChange: (v) => {
-              vstorage.patchMessages = v;
-              applyAll();
+              setFlag("patchMessages", v);
+              try {
+                applyAll();
+              } catch {
+              }
               rerender();
             }
           }),
           React.createElement(Toggle, {
             label: "Im\xE1genes (avatares/reacciones)",
-            value: vstorage.patchImages === true,
+            value: getPatchImages(),
             onChange: (v) => {
-              vstorage.patchImages = v;
-              applyAll();
+              setFlag("patchImages", v);
+              try {
+                applyAll();
+              } catch {
+              }
               rerender();
             }
           }),
           React.createElement(
             Text,
             { style: styles.mono },
-            `chat conectado: ${vstorage.statusChat ? "s\xED" : "no"}
-im\xE1genes parcheadas: ${vstorage.statusImages ? "s\xED" : "no"}
+            `chat conectado: ${state.chat ? "s\xED" : "no"}
+im\xE1genes parcheadas: ${state.images ? "s\xED" : "no"}
 updateRows llamado: ${counters.rows}
 emojis convertidos: ${counters.emoji}
 im\xE1genes reemplazadas: ${counters.imgs}`
           ),
-          vstorage.errMsg ? React.createElement(Text, { style: styles.err }, String(vstorage.errMsg)) : null,
+          state.err ? React.createElement(Text, { style: styles.err }, String(state.err)) : null,
           React.createElement(
             Text,
             { style: styles.sub, onPress: () => {
@@ -540,11 +560,11 @@ im\xE1genes reemplazadas: ${counters.imgs}`
   function onLoad() {
     try {
       applyAll();
-      vstorage.errMsg = "";
+      state.err = "";
       toast(`System Emojis ${VERSION}: activo \u2705`);
     } catch (e) {
       try {
-        vstorage.errMsg = String(e?.stack || e).slice(0, 300);
+        state.err = String(e?.stack || e).slice(0, 300);
       } catch {
       }
       reportError("onLoad", e);

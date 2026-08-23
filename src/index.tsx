@@ -1,21 +1,7 @@
 import { getStorage, getReact, getRN, toast, reportError } from "./stuff/env";
-import { applyAll, unwindAll, resetDebug, vstorage, counters } from "./stuff/controller";
+import { applyAll, unwindAll, resetDebug, getPatchMessages, getPatchImages, setFlag, state, counters } from "./stuff/controller";
 
-export const VERSION = "v11";
-
-const defaults: Record<string, any> = {
-    patchMessages: true,
-    patchImages: false,
-    statusChat: false,
-    statusImages: false,
-    dbgRows: 0,
-    dbgEmojiRows: 0,
-    dbgImages: 0,
-    errMsg: "",
-};
-for (const k of Object.keys(defaults)) {
-    if (vstorage[k] === undefined) vstorage[k] = defaults[k];
-}
+export const VERSION = "v12";
 
 let SettingsPanel: any = () => null;
 function getSettingsPanel(): any {
@@ -74,33 +60,33 @@ function buildSettings(): any {
                 ),
                 React.createElement(Toggle, {
                     label: "Mensajes (filas del chat)",
-                    value: vstorage.patchMessages !== false,
+                    value: getPatchMessages(),
                     onChange: (v: boolean) => {
-                        vstorage.patchMessages = v;
-                        applyAll();
+                        setFlag("patchMessages", v);
+                        try { applyAll(); } catch {}
                         rerender();
                     },
                 }),
                 React.createElement(Toggle, {
                     label: "Imágenes (avatares/reacciones)",
-                    value: vstorage.patchImages === true,
+                    value: getPatchImages(),
                     onChange: (v: boolean) => {
-                        vstorage.patchImages = v;
-                        applyAll();
+                        setFlag("patchImages", v);
+                        try { applyAll(); } catch {}
                         rerender();
                     },
                 }),
                 React.createElement(
                     Text,
                     { style: styles.mono },
-                    `chat conectado: ${vstorage.statusChat ? "sí" : "no"}`
-                    + `\nimágenes parcheadas: ${vstorage.statusImages ? "sí" : "no"}`
+                    `chat conectado: ${state.chat ? "sí" : "no"}`
+                    + `\nimágenes parcheadas: ${state.images ? "sí" : "no"}`
                     + `\nupdateRows llamado: ${counters.rows}`
                     + `\nemojis convertidos: ${counters.emoji}`
-                    + `\nimágenes reemplazadas: ${counters.imgs}`,
+                    + `\nimágenes reemplazadas: ${counters.imgs}`
                 ),
-                vstorage.errMsg
-                    ? React.createElement(Text, { style: styles.err }, String(vstorage.errMsg))
+                state.err
+                    ? React.createElement(Text, { style: styles.err }, String(state.err))
                     : null,
                 React.createElement(
                     Text,
@@ -118,11 +104,11 @@ function buildSettings(): any {
 export function onLoad(): void {
     try {
         applyAll();
-        vstorage.errMsg = "";
+        state.err = "";
         toast(`System Emojis ${VERSION}: activo ✅`);
     } catch (e) {
         try {
-            vstorage.errMsg = String((e as any)?.stack || e).slice(0, 300);
+            state.err = String((e as any)?.stack || e).slice(0, 300);
         } catch {}
         reportError("onLoad", e);
     }

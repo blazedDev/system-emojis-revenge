@@ -1,22 +1,22 @@
-import { getRN, getReact, reportError } from "./env";
+import { getRN, getReact } from "./env";
 import { uriToEmoji } from "./emoji";
 
 export function installImagePatch(
     onHit?: () => void,
-): { unwind: () => void; ok: boolean } {
+): { unwind: () => void; ok: boolean; msg?: string } {
     const RN: any = getRN();
     const React: any = getReact();
     const OrigImage: any = RN?.Image;
     const OrigText: any = RN?.Text;
 
     if (!RN || !React || !OrigImage) {
-        reportError(
-            "imágenes",
-            "faltan componentes: "
-            + [RN ? "" : "ReactNative", OrigImage ? "" : "RN.Image", React ? "" : "React"]
-                .filter(Boolean).join(", "),
-        );
-        return { unwind: () => {}, ok: false };
+        return {
+            unwind: () => {},
+            ok: false,
+            msg: "faltan: "
+                + [RN ? "" : "RN", OrigImage ? "" : "Image", React ? "" : "React"]
+                    .filter(Boolean).join(", "),
+        };
     }
 
     const wrapper = function EmojiAwareImage(props: any) {
@@ -33,23 +33,46 @@ export function installImagePatch(
         return React.createElement(OrigImage, props);
     };
 
+    // 1° intento: asignación directa (puede fallar si ReactNative es un Proxy sellado)
+    let installed = false;
     try {
-        for (const key of Object.keys(OrigImage ?? {})) {
-            try {
-                Object.defineProperty(wrapper, key, Object.getOwnPropertyDescriptor(OrigImage, key)!);
-            } catch {}
-        }
-        (RN as any).Image = wrapper;
-    } catch (e: any) {
-        reportError("imágenes", e);
-        return { unwind: () => {}, ok: false };
+        RN.Image = wrapper;
+        installed = RN.Image === wrapper;
+    } catch {}
+
+    // 2° intento: defineProperty (a veces sortea el trap set del Proxy)
+    if (!installed) {
+        try {
+            Object.defineProperty(RN, "Image", {
+                value: wrapper,
+                writable: true,
+                configurable: true,
+            });
+            installed = RN.Image === wrapper;
+        } catch {}
+    }
+
+    if (!installed) {
+        return {
+            unwind: () => {},
+            ok: false,
+            msg: "RN.Image es de solo lectura en tu build",
+        };
     }
 
     return {
         unwind: () => {
             try {
-                (RN as any).Image = OrigImage;
-            } catch {}
+                RN.Image = OrigImage;
+            } catch {
+                try {
+                    Object.defineProperty(RN, "Image", {
+                        value: OrigImage,
+                        writable: true,
+                        configurable: true,
+                    });
+                } catch {}
+            }
         },
         ok: true,
     };
