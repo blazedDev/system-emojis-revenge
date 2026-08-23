@@ -1,7 +1,8 @@
 import { getStorage, getReact, getRN, toast, reportError } from "./stuff/env";
+import { scanAndHookEmojiResolvers } from "./stuff/metro";
 import { applyAll, unwindAll, resetDebug, getPatchMessages, getPatchImages, setFlag, getMode, setMode, state, counters } from "./stuff/controller";
 
-export const VERSION = "v14";
+export const VERSION = "v15";
 
 let SettingsPanel: any = () => null;
 function getSettingsPanel(): any {
@@ -114,11 +115,13 @@ function buildSettings(): any {
                 React.createElement(
                     Text,
                     { style: styles.mono },
-                    `chat conectado: ${state.chat ? "sí" : "no"}`
+                    `resolutores hookeados: ${state.metro ?? 0}`
+                    + `\nchat conectado: ${state.chat ? "sí" : "no"}`
+                    + `\nmodo: ${getMode() === "ios" ? "iOS" : "sistema"}`
                     + `\nimágenes parcheadas: ${state.images ? "sí" : "no"}`
                     + `\nupdateRows llamado: ${counters.rows}`
                     + `\nemojis convertidos: ${counters.emoji}`
-                    + `\nimágenes reemplazadas: ${counters.imgs}`
+                    + `\nimágenes reemplazadas: ${counters.imgs}`,
                 ),
                 state.err
                     ? React.createElement(Text, { style: styles.err }, String(state.err))
@@ -146,6 +149,11 @@ function buildSettings(): any {
 export function onLoad(): void {
     try {
         applyAll();
+        if (getMode() === "ios") {
+            setTimeout(() => {
+                try { scanAndHookEmojiResolvers(); } catch {}
+            }, 1500);
+        }
         state.err = "";
         toast(`System Emojis ${VERSION}: activo ✅`);
     } catch (e) {

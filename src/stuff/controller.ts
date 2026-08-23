@@ -51,6 +51,7 @@ export const state = {
     images: false,
     err: "",
     sample: "",
+    metro: 0,
 };
 
 // Contadores internos (nunca se escriben al storage)
