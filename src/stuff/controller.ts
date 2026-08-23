@@ -50,6 +50,7 @@ export const state = {
     chat: false,
     images: false,
     err: "",
+    sample: "",
 };
 
 // Contadores internos (nunca se escriben al storage)
@@ -85,6 +86,14 @@ export function applyAll() {
         } else {
             const rowsPatch = patchRows(rows => {
                 counters.rows++;
+                if (!state.sample) {
+                    try {
+                        const hit = rows.find(r => r?.type === 1
+                            && Array.isArray(r.message?.content)
+                            && r.message.content.some(c => c && c.type === "emoji"));
+                        if (hit) state.sample = JSON.stringify(hit.message.content).slice(0, 700);
+                    } catch {}
+                }
                 counters.emoji += convertMessageRows(rows, getMode());
             });
             if (rowsPatch) {

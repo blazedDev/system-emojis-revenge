@@ -1,7 +1,7 @@
 import { getStorage, getReact, getRN, toast, reportError } from "./stuff/env";
 import { applyAll, unwindAll, resetDebug, getPatchMessages, getPatchImages, setFlag, getMode, setMode, state, counters } from "./stuff/controller";
 
-export const VERSION = "v13";
+export const VERSION = "v14";
 
 let SettingsPanel: any = () => null;
 function getSettingsPanel(): any {
@@ -122,6 +122,13 @@ function buildSettings(): any {
                 ),
                 state.err
                     ? React.createElement(Text, { style: styles.err }, String(state.err))
+                    : null,
+                state.sample
+                    ? React.createElement(
+                        View, null,
+                        React.createElement(Text, { style: styles.sub }, "Muestra fila emoji:"),
+                        React.createElement(Text, { style: styles.mono }, String(state.sample)),
+                    )
                     : null,
                 React.createElement(
                     Text,
