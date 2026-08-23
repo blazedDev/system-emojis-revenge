@@ -481,7 +481,8 @@ var __vd_plugin = (() => {
   var state = {
     chat: false,
     images: false,
-    err: ""
+    err: "",
+    sample: ""
   };
   var counters = { rows: 0, emoji: 0, imgs: 0 };
   var unwinds = [];
@@ -511,6 +512,13 @@ var __vd_plugin = (() => {
       } else {
         const rowsPatch = patchRows((rows) => {
           counters.rows++;
+          if (!state.sample) {
+            try {
+              const hit = rows.find((r) => r?.type === 1 && Array.isArray(r.message?.content) && r.message.content.some((c) => c && c.type === "emoji"));
+              if (hit) state.sample = JSON.stringify(hit.message.content).slice(0, 700);
+            } catch {
+            }
+          }
           counters.emoji += convertMessageRows(rows, getMode());
         });
         if (rowsPatch) {
@@ -530,7 +538,7 @@ var __vd_plugin = (() => {
   }
 
   // src/index.tsx
-  var VERSION = "v13";
+  var VERSION = "v14";
   var SettingsPanel = () => null;
   function getSettingsPanel() {
     if (!settingsCache) settingsCache = buildSettings();
@@ -664,6 +672,12 @@ emojis convertidos: ${counters.emoji}
 im\xE1genes reemplazadas: ${counters.imgs}`
           ),
           state.err ? React.createElement(Text, { style: styles.err }, String(state.err)) : null,
+          state.sample ? React.createElement(
+            View,
+            null,
+            React.createElement(Text, { style: styles.sub }, "Muestra fila emoji:"),
+            React.createElement(Text, { style: styles.mono }, String(state.sample))
+          ) : null,
           React.createElement(
             Text,
             { style: styles.sub, onPress: () => {
