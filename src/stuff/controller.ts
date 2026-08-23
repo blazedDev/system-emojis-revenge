@@ -2,6 +2,7 @@ import { getStorage, reportError } from "./env";
 
 import { convertMessageRows, getChatModule, patchRows } from "./rows";
 import { installImagePatch } from "./images";
+import { installCreateElementHook } from "./cehook";
 
 // Flags persistidos (best-effort; si el storage falla se usan los espejos)
 export const vstorage = getStorage() as {
@@ -52,6 +53,7 @@ export const state = {
     err: "",
     sample: "",
     metro: 0,
+    ce: false,
     scanMods: -1,
     scanCand: 0,
 };
@@ -60,6 +62,7 @@ export const state = {
 export const counters = { rows: 0, emoji: 0, imgs: 0 };
 
 const unwinds: (() => void)[] = [];
+let ceUnwind: (() => void) | null = null;
 
 export function unwindAll() {
     let u: (() => void) | undefined;
@@ -80,7 +83,20 @@ export function applyAll() {
     unwindAll();
     state.chat = false;
     state.images = false;
+    state.ce = false;
     resetDebug();
+
+    // Hook de createElement: activo en modo iOS
+    if (ceUnwind) {
+        try { ceUnwind(); } catch {}
+        ceUnwind = null;
+    }
+    if (getMode() === "ios") {
+        ceUnwind = installCreateElementHook(() => {
+            counters.imgs++;
+        });
+        state.ce = !!ceUnwind;
+    }
 
     if (getPatchMessages()) {
         const mod = getChatModule();

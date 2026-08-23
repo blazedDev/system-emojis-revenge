@@ -2,7 +2,7 @@ import { getStorage, getReact, getRN, toast, reportError } from "./stuff/env";
 import { scanAndHookEmojiRenderers } from "./stuff/metro";
 import { applyAll, unwindAll, resetDebug, getPatchMessages, getPatchImages, setFlag, getMode, setMode, state, counters } from "./stuff/controller";
 
-export const VERSION = "v16";
+export const VERSION = "v17";
 
 let SettingsPanel: any = () => null;
 function getSettingsPanel(): any {
@@ -115,7 +115,7 @@ function buildSettings(): any {
                 React.createElement(
                     Text,
                     { style: styles.mono },
-                    `módulos: ${state.scanMods ?? "?"} | candidatos: ${state.scanCand ?? "?"} | hookeados: ${state.metro ?? 0}`
+                    `createElement: ${state.ce ? "sí" : "no"} | módulos: ${state.scanMods ?? "?"} | hookeados: ${state.metro ?? 0}`
                     + `\nchat conectado: ${state.chat ? "sí" : "no"}`
                     + `\nmodo: ${getMode() === "ios" ? "iOS" : "sistema"}`
                     + `\nimágenes parcheadas: ${state.images ? "sí" : "no"}`
