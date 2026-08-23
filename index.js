@@ -443,6 +443,80 @@ var __vd_plugin = (() => {
     };
   }
 
+  // src/stuff/cehook.ts
+  function installCreateElementHook(onHit) {
+    const React = getReact();
+    const Orig = React?.createElement;
+    if (!React || typeof Orig !== "function") {
+      reportError("createElement", "React o createElement no disponibles");
+      return null;
+    }
+    if (Orig.__seeWrapped) return null;
+    const fastRewrite = (props) => {
+      try {
+        if (!props || typeof props !== "object") return;
+        const s = props.source;
+        if (s && typeof s === "object" && typeof s.uri === "string") {
+          const nu = iosizeString(s.uri);
+          if (nu !== s.uri) {
+            props.source = { ...s, uri: nu };
+            try {
+              onHit?.();
+            } catch {
+            }
+          }
+          return;
+        }
+        if (typeof props.uri === "string") {
+          const nu = iosizeString(props.uri);
+          if (nu !== props.uri) {
+            props.uri = nu;
+            try {
+              onHit?.();
+            } catch {
+            }
+          }
+        }
+      } catch {
+      }
+    };
+    const wrapped = function(type, config, ...children) {
+      if (config && typeof config === "object") fastRewrite(config);
+      return Orig.call(this, type, config, ...children);
+    };
+    try {
+      Object.defineProperty(wrapped, "__seeWrapped", { value: true });
+    } catch {
+    }
+    let installed = false;
+    try {
+      React.createElement = wrapped;
+      installed = React.createElement === wrapped;
+    } catch {
+    }
+    if (!installed) {
+      try {
+        Object.defineProperty(React, "createElement", {
+          value: wrapped,
+          writable: true,
+          configurable: true
+        });
+        installed = React.createElement === wrapped;
+      } catch {
+      }
+    }
+    if (!installed) {
+      reportError("createElement", "no se pudo instalar (objeto sellado)");
+      return null;
+    }
+    return () => {
+      try {
+        React.createElement = Orig;
+      } catch {
+      }
+    };
+  }
+
   // src/stuff/controller.ts
   var vstorage = getStorage();
   function getMode() {
@@ -484,11 +558,13 @@ var __vd_plugin = (() => {
     err: "",
     sample: "",
     metro: 0,
+    ce: false,
     scanMods: -1,
     scanCand: 0
   };
   var counters = { rows: 0, emoji: 0, imgs: 0 };
   var unwinds = [];
+  var ceUnwind = null;
   function unwindAll() {
     let u;
     while (u = unwinds.pop()) {
@@ -507,7 +583,21 @@ var __vd_plugin = (() => {
     unwindAll();
     state.chat = false;
     state.images = false;
+    state.ce = false;
     resetDebug();
+    if (ceUnwind) {
+      try {
+        ceUnwind();
+      } catch {
+      }
+      ceUnwind = null;
+    }
+    if (getMode() === "ios") {
+      ceUnwind = installCreateElementHook(() => {
+        counters.imgs++;
+      });
+      state.ce = !!ceUnwind;
+    }
     if (getPatchMessages()) {
       const mod = getChatModule();
       if (!mod || typeof mod.updateRows !== "function") {
@@ -697,7 +787,7 @@ var __vd_plugin = (() => {
   }
 
   // src/index.tsx
-  var VERSION = "v16";
+  var VERSION = "v17";
   var SettingsPanel = () => null;
   function getSettingsPanel() {
     if (!settingsCache) settingsCache = buildSettings();
@@ -824,7 +914,7 @@ var __vd_plugin = (() => {
           React.createElement(
             Text,
             { style: styles.mono },
-            `m\xF3dulos: ${state.scanMods ?? "?"} | candidatos: ${state.scanCand ?? "?"} | hookeados: ${state.metro ?? 0}
+            `createElement: ${state.ce ? "s\xED" : "no"} | m\xF3dulos: ${state.scanMods ?? "?"} | hookeados: ${state.metro ?? 0}
 chat conectado: ${state.chat ? "s\xED" : "no"}
 modo: ${getMode() === "ios" ? "iOS" : "sistema"}
 im\xE1genes parcheadas: ${state.images ? "s\xED" : "no"}
