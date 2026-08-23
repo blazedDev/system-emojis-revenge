@@ -482,7 +482,8 @@ var __vd_plugin = (() => {
     chat: false,
     images: false,
     err: "",
-    sample: ""
+    sample: "",
+    metro: 0
   };
   var counters = { rows: 0, emoji: 0, imgs: 0 };
   var unwinds = [];
@@ -537,8 +538,106 @@ var __vd_plugin = (() => {
     }
   }
 
+  // src/stuff/metro.ts
+  function looksLikeEmojiModule(src) {
+    if (src.indexOf("surrogate") === -1 && src.indexOf("emoji") === -1) return false;
+    return src.indexOf("asset:/") !== -1 || src.indexOf("emoji-") !== -1 || src.indexOf("codePoint") !== -1;
+  }
+  function wrapValue(v) {
+    if (typeof v === "function") {
+      let src = "";
+      try {
+        src = Function.prototype.toString.call(v);
+      } catch {
+        return null;
+      }
+      if (src.indexOf("emoji-") === -1 && src.indexOf("asset:/") === -1 && src.indexOf("codePoint") === -1) {
+        return null;
+      }
+      return function(...args) {
+        const r = v.apply(this, args);
+        if (typeof r === "string") return iosizeString(r);
+        if (r && typeof r === "object" && typeof r.uri === "string") {
+          try {
+            const nu = iosizeString(r.uri);
+            if (nu !== r.uri) return { ...r, uri: nu };
+          } catch {
+          }
+        }
+        return r;
+      };
+    }
+    return null;
+  }
+  function wrapExports(exps, depth) {
+    if (!exps || depth > 2) return 0;
+    let n = 0;
+    const t = typeof exps;
+    if (t !== "object" && t !== "function") return 0;
+    let keys = [];
+    try {
+      keys = Object.keys(exps);
+    } catch {
+      return 0;
+    }
+    for (const k of keys) {
+      let cur;
+      try {
+        cur = exps[k];
+      } catch {
+        continue;
+      }
+      const w = wrapValue(cur);
+      if (w) {
+        try {
+          Object.defineProperty(exps, k, {
+            value: w,
+            writable: true,
+            configurable: true
+          });
+          n++;
+          continue;
+        } catch {
+        }
+      }
+      if (cur && typeof cur === "object" && !Array.isArray(cur)) {
+        n += wrapExports(cur, depth + 1);
+      }
+    }
+    return n;
+  }
+  function scanAndHookEmojiResolvers() {
+    let hooked = 0;
+    try {
+      const mods = globalThis.modules;
+      const req = globalThis.__r;
+      if (!mods || typeof req !== "function") return 0;
+      for (const idKey in mods) {
+        if (hooked > 0 && hooked % 50 === 0) {
+        }
+        let src = "";
+        try {
+          const fac = mods[idKey]?.factory;
+          if (typeof fac !== "function") continue;
+          src = Function.prototype.toString.call(fac);
+        } catch {
+          continue;
+        }
+        if (!looksLikeEmojiModule(src)) continue;
+        try {
+          const exps = req(Number(idKey));
+          hooked += wrapExports(exps, 0);
+        } catch {
+        }
+      }
+    } catch {
+    }
+    state.metro = hooked;
+    return hooked;
+  }
+
   // src/index.tsx
-  var VERSION = "v14";
+  var VERSION = "v15";
   var SettingsPanel = () => null;
   function getSettingsPanel() {
     if (!settingsCache) settingsCache = buildSettings();
@@ -665,7 +764,9 @@ var __vd_plugin = (() => {
           React.createElement(
             Text,
             { style: styles.mono },
-            `chat conectado: ${state.chat ? "s\xED" : "no"}
+            `resolutores hookeados: ${state.metro ?? 0}
+chat conectado: ${state.chat ? "s\xED" : "no"}
+modo: ${getMode() === "ios" ? "iOS" : "sistema"}
 im\xE1genes parcheadas: ${state.images ? "s\xED" : "no"}
 updateRows llamado: ${counters.rows}
 emojis convertidos: ${counters.emoji}
@@ -696,6 +797,14 @@ im\xE1genes reemplazadas: ${counters.imgs}`
   function onLoad() {
     try {
       applyAll();
+      if (getMode() === "ios") {
+        setTimeout(() => {
+          try {
+            scanAndHookEmojiResolvers();
+          } catch {
+          }
+        }, 1500);
+      }
       state.err = "";
       toast(`System Emojis ${VERSION}: activo \u2705`);
     } catch (e) {
