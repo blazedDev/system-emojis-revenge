@@ -1,8 +1,8 @@
 import { getStorage, getReact, getRN, toast, reportError } from "./stuff/env";
-import { scanAndHookEmojiResolvers } from "./stuff/metro";
+import { scanAndHookEmojiRenderers } from "./stuff/metro";
 import { applyAll, unwindAll, resetDebug, getPatchMessages, getPatchImages, setFlag, getMode, setMode, state, counters } from "./stuff/controller";
 
-export const VERSION = "v15";
+export const VERSION = "v16";
 
 let SettingsPanel: any = () => null;
 function getSettingsPanel(): any {
@@ -115,7 +115,7 @@ function buildSettings(): any {
                 React.createElement(
                     Text,
                     { style: styles.mono },
-                    `resolutores hookeados: ${state.metro ?? 0}`
+                    `módulos: ${state.scanMods ?? "?"} | candidatos: ${state.scanCand ?? "?"} | hookeados: ${state.metro ?? 0}`
                     + `\nchat conectado: ${state.chat ? "sí" : "no"}`
                     + `\nmodo: ${getMode() === "ios" ? "iOS" : "sistema"}`
                     + `\nimágenes parcheadas: ${state.images ? "sí" : "no"}`
@@ -151,7 +151,7 @@ export function onLoad(): void {
         applyAll();
         if (getMode() === "ios") {
             setTimeout(() => {
-                try { scanAndHookEmojiResolvers(); } catch {}
+                try { scanAndHookEmojiRenderers(); } catch {}
             }, 1500);
         }
         state.err = "";

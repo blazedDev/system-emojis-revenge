@@ -52,6 +52,8 @@ export const state = {
     err: "",
     sample: "",
     metro: 0,
+    scanMods: -1,
+    scanCand: 0,
 };
 
 // Contadores internos (nunca se escriben al storage)

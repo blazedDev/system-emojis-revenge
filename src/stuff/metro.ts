@@ -1,107 +1,161 @@
 import { iosizeString } from "./emoji";
 import { state } from "./controller";
 
-// Busca módulos de metro cuyo código construya URIs de emoji
-// ("asset:/emoji-...", "emoji-" + hex, etc.) y envuelve esas funciones
-// para que devuelvan URLs de Apple.
+// Estrategia v16:
+// 1) Encontrar módulos cuya fuente mencione "surrogate" (renderer de filas emoji).
+// 2) Envolver sus exportaciones tipo componente para reescribir los árboles de
+//    elementos que devuelven: cualquier props.source.uri de emoji → URL Apple.
 
-function looksLikeEmojiModule(src: string): boolean {
-    if (src.indexOf("surrogate") === -1 && src.indexOf("emoji") === -1) return false;
-    return src.indexOf("asset:/") !== -1
-        || src.indexOf("emoji-") !== -1
-        || src.indexOf("codePoint") !== -1;
+const MAX_CANDIDATE_MODULES = 60;
+const MAX_FNS_PER_MODULE = 120;
+
+function isReactEl(x: any): boolean {
+    return !!x && typeof x === "object" && !!x.$$typeof;
 }
 
-function wrapValue(v: any): any {
-    if (typeof v === "function") {
-        let src = "";
-        try {
-            src = Function.prototype.toString.call(v);
-        } catch {
-            return null;
-        }
-        if (src.indexOf("emoji-") === -1 && src.indexOf("asset:/") === -1 && src.indexOf("codePoint") === -1) {
-            return null;
-        }
-        return function (this: any, ...args: any[]) {
-            const r = v.apply(this, args);
-            if (typeof r === "string") return iosizeString(r);
-            if (r && typeof r === "object" && typeof r.uri === "string") {
-                try {
-                    const nu = iosizeString(r.uri);
-                    if (nu !== r.uri) return { ...r, uri: nu };
-                } catch {}
-            }
-            return r;
-        };
+function rewriteUriTarget(props: any): boolean {
+    if (!props || typeof props !== "object") return false;
+    const s = props.source;
+    if ((globalThis as any).__SEE_DBG) {
+        const emo = typeof s?.uri === "string" ? uriToEmoji(s.uri) : null;
+        console.log("[SEE-uri] uri:", String(s?.uri).slice(0,44),
+            "| emoji:", JSON.stringify(emo),
+            "| apple:", appleUrlFromEmoji(emo ?? ""),
+            "| iosize:", iosizeString(s?.uri)?.slice(0, 50),
+        );
     }
-    return null;
+    if (s && typeof s === "object" && typeof s.uri === "string") {
+        const nu = iosizeString(s.uri);
+        if (nu !== s.uri) {
+            props.source = { ...s, uri: nu };
+            return true;
+        }
+        return false;
+    }
+    if (typeof props.uri === "string") {
+        const nu = iosizeString(props.uri);
+        if (nu !== props.uri) {
+            props.uri = nu;
+            return true;
+        }
+    }
+    return false;
 }
 
-function wrapExports(exps: any, depth: number): number {
-    if (!exps || depth > 2) return 0;
-    let n = 0;
-    const t = typeof exps;
-    if (t !== "object" && t !== "function") return 0;
+const SEEN = new WeakSet();
 
-    let keys: string[] = [];
+function walkEl(el: any, depth: number): number {
+    if (!el || depth > 12 || SEEN.has(el)) return 0;
+    let changed = 0;
+    try {
+        if (isReactEl(el)) {
+            if (rewriteUriTarget(el.props)) changed++;
+            const ch = el.props?.children;
+            if (Array.isArray(ch)) {
+                for (const c of ch) changed += walkEl(c, depth + 1);
+            } else {
+                changed += walkEl(ch, depth + 1);
+            }
+        } else if (Array.isArray(el)) {
+            for (const c of el) changed += walkEl(c, depth + 1);
+        } else if (typeof el === "object") {
+            if (rewriteUriTarget(el)) changed++;
+            const ch = el.children ?? el.props?.children;
+            if (ch) changed += walkEl(ch, depth + 1);
+        }
+    } catch {}
+    return changed;
+}
+
+function wrapComponent(fn: any): any {
+    const wrapped = function (this: any, ...args: any[]) {
+        const out = fn.apply(this, args);
+        if (out) {
+            try {
+                walkEl(out, 0);
+            } catch {}
+        }
+        return out;
+    };
+    try {
+        Object.defineProperty(wrapped, "name", { value: fn.name || "wrapped", configurable: true });
+    } catch {}
+    return wrapped;
+}
+
+function shouldWrapFn(f: any): boolean {
+    try {
+        const src = Function.prototype.toString.call(f);
+        return src.includes("surrogate") || src.includes("emoji-") || src.includes("asset:/");
+    } catch {
+        return false;
+    }
+}
+
+function hookExports(exps: any, depth: number, budget: { n: number }): number {
+    if (!exps || depth > 3 || budget.n <= 0) return 0;
+    let hooked = 0;
+    let keys: any[] = [];
     try {
         keys = Object.keys(exps);
     } catch {
         return 0;
     }
-
     for (const k of keys) {
+        if (budget.n <= 0) break;
         let cur: any;
         try {
             cur = exps[k];
         } catch {
             continue;
         }
-        const w = wrapValue(cur);
-        if (w) {
+        budget.n--;
+        if (typeof cur === "function" && shouldWrapFn(cur)) {
             try {
-                Object.defineProperty(exps, k, {
-                    value: w,
-                    writable: true,
-                    configurable: true,
-                });
-                n++;
+                const w = wrapComponent(cur);
+                Object.defineProperty(exps, k, { value: w, writable: true, configurable: true });
+                hooked++;
                 continue;
             } catch {}
         }
         if (cur && typeof cur === "object" && !Array.isArray(cur)) {
-            n += wrapExports(cur, depth + 1);
+            hooked += hookExports(cur, depth + 1, budget);
         }
     }
-    return n;
+    return hooked;
 }
 
-export function scanAndHookEmojiResolvers(): number {
-    let hooked = 0;
+export function scanAndHookEmojiRenderers(): void {
+    state.metro = 0;
+    state.scanMods = -1;
+    state.scanCand = 0;
     try {
         const mods = (globalThis as any).modules;
         const req = (globalThis as any).__r;
-        if (!mods || typeof req !== "function") return 0;
+        if (!mods || typeof req !== "function") return;
 
-        for (const idKey in mods) {
-            if (hooked > 0 && hooked % 50 === 0) { /* límite blando */ }
+        const ids: string[] = [];
+        for (const id in mods) {
+            state.scanMods++;
             let src = "";
             try {
-                const fac = mods[idKey]?.factory;
+                const fac = mods[id]?.factory;
                 if (typeof fac !== "function") continue;
                 src = Function.prototype.toString.call(fac);
             } catch {
                 continue;
             }
-            if (!looksLikeEmojiModule(src)) continue;
+            if (src.indexOf("surrogate") !== -1) ids.push(id);
+        }
+        state.scanCand = ids.length;
 
+        let hooked = 0;
+        for (const id of ids.slice(0, MAX_CANDIDATE_MODULES)) {
             try {
-                const exps = req(Number(idKey));
-                hooked += wrapExports(exps, 0);
+                const exps = req(Number(id));
+                hooked += hookExports(exps, 0, { n: MAX_FNS_PER_MODULE });
             } catch {}
         }
+        state.metro = hooked;
     } catch {}
-    state.metro = hooked;
-    return hooked;
 }
