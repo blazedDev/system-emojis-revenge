@@ -113,7 +113,7 @@ export function reportError(scope: string, e: unknown): void {
         text = String(e);
     }
     try {
-        console.error("[SystemEmojisEverywhere]", scope, text);
+        console.error("[QuestFarmer]", scope, text);
     } catch {}
     try {
         const Alert = getRN()?.Alert;
@@ -130,7 +130,7 @@ export function reportError(scope: string, e: unknown): void {
 
 export function toast(m: string): void {
     try {
-        console.log("[SystemEmojisEverywhere]", m);
+        console.log("[QuestFarmer]", m);
     } catch {}
     try {
         const t = getToasts();

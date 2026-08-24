@@ -91,20 +91,6 @@ var __vd_plugin = (() => {
     }
     return void 0;
   }
-  function getPatcher() {
-    const cands = [
-      () => getVd()?.patcher,
-      () => getBunny()?.api?.patcher
-    ];
-    for (const c of cands) {
-      try {
-        const p = c();
-        if (p?.before) return p;
-      } catch {
-      }
-    }
-    return void 0;
-  }
   function getToasts() {
     const cands = [
       () => getVd()?.["ui.toasts"]?.showToast,
@@ -119,16 +105,6 @@ var __vd_plugin = (() => {
     }
     return null;
   }
-  var storageFallback = null;
-  function getStorage() {
-    try {
-      const s = getVd()?.plugin?.storage;
-      if (s && typeof s === "object") return s;
-    } catch {
-    }
-    if (!storageFallback) storageFallback = {};
-    return storageFallback;
-  }
   function reportError(scope, e) {
     let text = "";
     try {
@@ -137,7 +113,7 @@ var __vd_plugin = (() => {
       text = String(e);
     }
     try {
-      console.error("[SystemEmojisEverywhere]", scope, text);
+      console.error("[QuestFarmer]", scope, text);
     } catch {
     }
     try {
@@ -156,7 +132,7 @@ var __vd_plugin = (() => {
   }
   function toast(m) {
     try {
-      console.log("[SystemEmojisEverywhere]", m);
+      console.log("[QuestFarmer]", m);
     } catch {
     }
     try {
@@ -166,634 +142,176 @@ var __vd_plugin = (() => {
     }
   }
 
-  // node_modules/emoji-regex/index.mjs
-  var emoji_regex_default = () => {
-    return /[#*0-9]\uFE0F?\u20E3|[\xA9\xAE\u203C\u2049\u2122\u2139\u2194-\u2199\u21A9\u21AA\u231A\u231B\u2328\u23CF\u23ED-\u23EF\u23F1\u23F2\u23F8-\u23FA\u24C2\u25AA\u25AB\u25B6\u25C0\u25FB\u25FC\u25FE\u2600-\u2604\u260E\u2611\u2614\u2615\u2618\u2620\u2622\u2623\u2626\u262A\u262E\u262F\u2638-\u263A\u2640\u2642\u2648-\u2653\u265F\u2660\u2663\u2665\u2666\u2668\u267B\u267E\u267F\u2692\u2694-\u2697\u2699\u269B\u269C\u26A0\u26A7\u26AA\u26B0\u26B1\u26BD\u26BE\u26C4\u26C8\u26CF\u26D1\u26E9\u26F0-\u26F5\u26F7\u26F8\u26FA\u2702\u2708\u2709\u270F\u2712\u2714\u2716\u271D\u2721\u2733\u2734\u2744\u2747\u2757\u2763\u27A1\u2934\u2935\u2B05-\u2B07\u2B1B\u2B1C\u2B55\u3030\u303D\u3297\u3299]\uFE0F?|[\u261D\u270C\u270D](?:\uD83C[\uDFFB-\uDFFF]|\uFE0F)?|[\u270A\u270B](?:\uD83C[\uDFFB-\uDFFF])?|[\u23E9-\u23EC\u23F0\u23F3\u25FD\u2693\u26A1\u26AB\u26C5\u26CE\u26D4\u26EA\u26FD\u2705\u2728\u274C\u274E\u2753-\u2755\u2795-\u2797\u27B0\u27BF\u2B50]|\u26D3\uFE0F?(?:\u200D\uD83D\uDCA5)?|\u26F9(?:\uD83C[\uDFFB-\uDFFF]|\uFE0F)?(?:\u200D[\u2640\u2642]\uFE0F?)?|\u2764\uFE0F?(?:\u200D(?:\uD83D\uDD25|\uD83E\uDE79))?|\uD83C(?:[\uDC04\uDD70\uDD71\uDD7E\uDD7F\uDE02\uDE37\uDF21\uDF24-\uDF2C\uDF36\uDF7D\uDF96\uDF97\uDF99-\uDF9B\uDF9E\uDF9F\uDFCD\uDFCE\uDFD4-\uDFDF\uDFF5\uDFF7]\uFE0F?|[\uDF85\uDFC2\uDFC7](?:\uD83C[\uDFFB-\uDFFF])?|[\uDFC4\uDFCA](?:\uD83C[\uDFFB-\uDFFF])?(?:\u200D[\u2640\u2642]\uFE0F?)?|[\uDFCB\uDFCC](?:\uD83C[\uDFFB-\uDFFF]|\uFE0F)?(?:\u200D[\u2640\u2642]\uFE0F?)?|[\uDCCF\uDD8E\uDD91-\uDD9A\uDE01\uDE1A\uDE2F\uDE32-\uDE36\uDE38-\uDE3A\uDE50\uDE51\uDF00-\uDF20\uDF2D-\uDF35\uDF37-\uDF43\uDF45-\uDF4A\uDF4C-\uDF7C\uDF7E-\uDF84\uDF86-\uDF93\uDFA0-\uDFC1\uDFC5\uDFC6\uDFC8\uDFC9\uDFCF-\uDFD3\uDFE0-\uDFF0\uDFF8-\uDFFF]|\uDDE6\uD83C[\uDDE8-\uDDEC\uDDEE\uDDF1\uDDF2\uDDF4\uDDF6-\uDDFA\uDDFC\uDDFD\uDDFF]|\uDDE7\uD83C[\uDDE6\uDDE7\uDDE9-\uDDEF\uDDF1-\uDDF4\uDDF6-\uDDF9\uDDFB\uDDFC\uDDFE\uDDFF]|\uDDE8\uD83C[\uDDE6\uDDE8\uDDE9\uDDEB-\uDDEE\uDDF0-\uDDF7\uDDFA-\uDDFF]|\uDDE9\uD83C[\uDDEA\uDDEC\uDDEF\uDDF0\uDDF2\uDDF4\uDDFF]|\uDDEA\uD83C[\uDDE6\uDDE8\uDDEA\uDDEC\uDDED\uDDF7-\uDDFA]|\uDDEB\uD83C[\uDDEE-\uDDF0\uDDF2\uDDF4\uDDF7]|\uDDEC\uD83C[\uDDE6\uDDE7\uDDE9-\uDDEE\uDDF1-\uDDF3\uDDF5-\uDDFA\uDDFC\uDDFE]|\uDDED\uD83C[\uDDF0\uDDF2\uDDF3\uDDF7\uDDF9\uDDFA]|\uDDEE\uD83C[\uDDE8-\uDDEA\uDDF1-\uDDF4\uDDF6-\uDDF9]|\uDDEF\uD83C[\uDDEA\uDDF2\uDDF4\uDDF5]|\uDDF0\uD83C[\uDDEA\uDDEC-\uDDEE\uDDF2\uDDF3\uDDF5\uDDF7\uDDFC\uDDFE\uDDFF]|\uDDF1\uD83C[\uDDE6-\uDDE8\uDDEE\uDDF0\uDDF7-\uDDFB\uDDFE]|\uDDF2\uD83C[\uDDE6\uDDE8-\uDDED\uDDF0-\uDDFF]|\uDDF3\uD83C[\uDDE6\uDDE8\uDDEA-\uDDEC\uDDEE\uDDF1\uDDF4\uDDF5\uDDF7\uDDFA\uDDFF]|\uDDF4\uD83C\uDDF2|\uDDF5\uD83C[\uDDE6\uDDEA-\uDDED\uDDF0-\uDDF3\uDDF7-\uDDF9\uDDFC\uDDFE]|\uDDF6\uD83C\uDDE6|\uDDF7\uD83C[\uDDEA\uDDF4\uDDF8\uDDFA\uDDFC]|\uDDF8\uD83C[\uDDE6-\uDDEA\uDDEC-\uDDF4\uDDF7-\uDDF9\uDDFB\uDDFD-\uDDFF]|\uDDF9\uD83C[\uDDE6\uDDE8\uDDE9\uDDEB-\uDDED\uDDEF-\uDDF4\uDDF7\uDDF9\uDDFB\uDDFC\uDDFF]|\uDDFA\uD83C[\uDDE6\uDDEC\uDDF2\uDDF3\uDDF8\uDDFE\uDDFF]|\uDDFB\uD83C[\uDDE6\uDDE8\uDDEA\uDDEC\uDDEE\uDDF3\uDDFA]|\uDDFC\uD83C[\uDDEB\uDDF8]|\uDDFD\uD83C\uDDF0|\uDDFE\uD83C[\uDDEA\uDDF9]|\uDDFF\uD83C[\uDDE6\uDDF2\uDDFC]|\uDF44(?:\u200D\uD83D\uDFEB)?|\uDF4B(?:\u200D\uD83D\uDFE9)?|\uDFC3(?:\uD83C[\uDFFB-\uDFFF])?(?:\u200D(?:[\u2640\u2642]\uFE0F?(?:\u200D\u27A1\uFE0F?)?|\u27A1\uFE0F?))?|\uDFF3\uFE0F?(?:\u200D(?:\u26A7\uFE0F?|\uD83C\uDF08))?|\uDFF4(?:\u200D\u2620\uFE0F?|\uDB40\uDC67\uDB40\uDC62\uDB40(?:\uDC65\uDB40\uDC6E\uDB40\uDC67|\uDC73\uDB40\uDC63\uDB40\uDC74|\uDC77\uDB40\uDC6C\uDB40\uDC73)\uDB40\uDC7F)?)|\uD83D(?:[\uDC3F\uDCFD\uDD49\uDD4A\uDD6F\uDD70\uDD73\uDD76-\uDD79\uDD87\uDD8A-\uDD8D\uDDA5\uDDA8\uDDB1\uDDB2\uDDBC\uDDC2-\uDDC4\uDDD1-\uDDD3\uDDDC-\uDDDE\uDDE1\uDDE3\uDDE8\uDDEF\uDDF3\uDDFA\uDECB\uDECD-\uDECF\uDEE0-\uDEE5\uDEE9\uDEF0\uDEF3]\uFE0F?|[\uDC42\uDC43\uDC46-\uDC50\uDC66\uDC67\uDC6B-\uDC6D\uDC72\uDC74-\uDC76\uDC78\uDC7C\uDC83\uDC85\uDC8F\uDC91\uDCAA\uDD7A\uDD95\uDD96\uDE4C\uDE4F\uDEC0\uDECC](?:\uD83C[\uDFFB-\uDFFF])?|[\uDC6E-\uDC71\uDC73\uDC77\uDC81\uDC82\uDC86\uDC87\uDE45-\uDE47\uDE4B\uDE4D\uDE4E\uDEA3\uDEB4\uDEB5](?:\uD83C[\uDFFB-\uDFFF])?(?:\u200D[\u2640\u2642]\uFE0F?)?|[\uDD74\uDD90](?:\uD83C[\uDFFB-\uDFFF]|\uFE0F)?|[\uDC00-\uDC07\uDC09-\uDC14\uDC16-\uDC25\uDC27-\uDC3A\uDC3C-\uDC3E\uDC40\uDC44\uDC45\uDC51-\uDC65\uDC6A\uDC79-\uDC7B\uDC7D-\uDC80\uDC84\uDC88-\uDC8E\uDC90\uDC92-\uDCA9\uDCAB-\uDCFC\uDCFF-\uDD3D\uDD4B-\uDD4E\uDD50-\uDD67\uDDA4\uDDFB-\uDE2D\uDE2F-\uDE34\uDE37-\uDE41\uDE43\uDE44\uDE48-\uDE4A\uDE80-\uDEA2\uDEA4-\uDEB3\uDEB7-\uDEBF\uDEC1-\uDEC5\uDED0-\uDED2\uDED5-\uDED8\uDEDC-\uDEDF\uDEEB\uDEEC\uDEF4-\uDEFC\uDFE0-\uDFEB\uDFF0]|\uDC08(?:\u200D\u2B1B)?|\uDC15(?:\u200D\uD83E\uDDBA)?|\uDC26(?:\u200D(?:\u2B1B|\uD83D\uDD25))?|\uDC3B(?:\u200D\u2744\uFE0F?)?|\uDC41\uFE0F?(?:\u200D\uD83D\uDDE8\uFE0F?)?|\uDC68(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:\uDC8B\u200D\uD83D)?\uDC68|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDC68\uDC69]\u200D\uD83D(?:\uDC66(?:\u200D\uD83D\uDC66)?|\uDC67(?:\u200D\uD83D[\uDC66\uDC67])?)|[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC66(?:\u200D\uD83D\uDC66)?|\uDC67(?:\u200D\uD83D[\uDC66\uDC67])?)|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3]))|\uD83C(?:\uDFFB(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:\uDC8B\u200D\uD83D)?\uDC68\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC68\uD83C[\uDFFC-\uDFFF])|\uD83E(?:[\uDD1D\uDEEF]\u200D\uD83D\uDC68\uD83C[\uDFFC-\uDFFF]|[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3])))?|\uDFFC(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:\uDC8B\u200D\uD83D)?\uDC68\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC68\uD83C[\uDFFB\uDFFD-\uDFFF])|\uD83E(?:[\uDD1D\uDEEF]\u200D\uD83D\uDC68\uD83C[\uDFFB\uDFFD-\uDFFF]|[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3])))?|\uDFFD(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:\uDC8B\u200D\uD83D)?\uDC68\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC68\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF])|\uD83E(?:[\uDD1D\uDEEF]\u200D\uD83D\uDC68\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF]|[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3])))?|\uDFFE(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:\uDC8B\u200D\uD83D)?\uDC68\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC68\uD83C[\uDFFB-\uDFFD\uDFFF])|\uD83E(?:[\uDD1D\uDEEF]\u200D\uD83D\uDC68\uD83C[\uDFFB-\uDFFD\uDFFF]|[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3])))?|\uDFFF(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:\uDC8B\u200D\uD83D)?\uDC68\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC68\uD83C[\uDFFB-\uDFFE])|\uD83E(?:[\uDD1D\uDEEF]\u200D\uD83D\uDC68\uD83C[\uDFFB-\uDFFE]|[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3])))?))?|\uDC69(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:\uDC8B\u200D\uD83D)?[\uDC68\uDC69]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC66(?:\u200D\uD83D\uDC66)?|\uDC67(?:\u200D\uD83D[\uDC66\uDC67])?|\uDC69\u200D\uD83D(?:\uDC66(?:\u200D\uD83D\uDC66)?|\uDC67(?:\u200D\uD83D[\uDC66\uDC67])?))|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3]))|\uD83C(?:\uDFFB(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:[\uDC68\uDC69]|\uDC8B\u200D\uD83D[\uDC68\uDC69])\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC69\uD83C[\uDFFC-\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3]|\uDD1D\u200D\uD83D[\uDC68\uDC69]\uD83C[\uDFFC-\uDFFF]|\uDEEF\u200D\uD83D\uDC69\uD83C[\uDFFC-\uDFFF])))?|\uDFFC(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:[\uDC68\uDC69]|\uDC8B\u200D\uD83D[\uDC68\uDC69])\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC69\uD83C[\uDFFB\uDFFD-\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3]|\uDD1D\u200D\uD83D[\uDC68\uDC69]\uD83C[\uDFFB\uDFFD-\uDFFF]|\uDEEF\u200D\uD83D\uDC69\uD83C[\uDFFB\uDFFD-\uDFFF])))?|\uDFFD(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:[\uDC68\uDC69]|\uDC8B\u200D\uD83D[\uDC68\uDC69])\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC69\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3]|\uDD1D\u200D\uD83D[\uDC68\uDC69]\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF]|\uDEEF\u200D\uD83D\uDC69\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF])))?|\uDFFE(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:[\uDC68\uDC69]|\uDC8B\u200D\uD83D[\uDC68\uDC69])\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC69\uD83C[\uDFFB-\uDFFD\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3]|\uDD1D\u200D\uD83D[\uDC68\uDC69]\uD83C[\uDFFB-\uDFFD\uDFFF]|\uDEEF\u200D\uD83D\uDC69\uD83C[\uDFFB-\uDFFD\uDFFF])))?|\uDFFF(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:[\uDC68\uDC69]|\uDC8B\u200D\uD83D[\uDC68\uDC69])\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC69\uD83C[\uDFFB-\uDFFE])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3]|\uDD1D\u200D\uD83D[\uDC68\uDC69]\uD83C[\uDFFB-\uDFFE]|\uDEEF\u200D\uD83D\uDC69\uD83C[\uDFFB-\uDFFE])))?))?|\uDD75(?:\uD83C[\uDFFB-\uDFFF]|\uFE0F)?(?:\u200D[\u2640\u2642]\uFE0F?)?|\uDE2E(?:\u200D\uD83D\uDCA8)?|\uDE35(?:\u200D\uD83D\uDCAB)?|\uDE36(?:\u200D\uD83C\uDF2B\uFE0F?)?|\uDE42(?:\u200D[\u2194\u2195]\uFE0F?)?|\uDEB6(?:\uD83C[\uDFFB-\uDFFF])?(?:\u200D(?:[\u2640\u2642]\uFE0F?(?:\u200D\u27A1\uFE0F?)?|\u27A1\uFE0F?))?)|\uD83E(?:[\uDD0C\uDD0F\uDD18-\uDD1F\uDD30-\uDD34\uDD36\uDD77\uDDB5\uDDB6\uDDBB\uDDD2\uDDD3\uDDD5\uDEC3-\uDEC5\uDEF0\uDEF2-\uDEF8](?:\uD83C[\uDFFB-\uDFFF])?|[\uDD26\uDD35\uDD37-\uDD39\uDD3C-\uDD3E\uDDB8\uDDB9\uDDCD\uDDCF\uDDD4\uDDD6-\uDDDD](?:\uD83C[\uDFFB-\uDFFF])?(?:\u200D[\u2640\u2642]\uFE0F?)?|[\uDDDE\uDDDF](?:\u200D[\u2640\u2642]\uFE0F?)?|[\uDD0D\uDD0E\uDD10-\uDD17\uDD20-\uDD25\uDD27-\uDD2F\uDD3A\uDD3F-\uDD45\uDD47-\uDD76\uDD78-\uDDB4\uDDB7\uDDBA\uDDBC-\uDDCC\uDDD0\uDDE0-\uDDFF\uDE70-\uDE7C\uDE80-\uDE8A\uDE8E-\uDEC2\uDEC6\uDEC8\uDECD-\uDEDC\uDEDF-\uDEEA\uDEEF]|\uDDCE(?:\uD83C[\uDFFB-\uDFFF])?(?:\u200D(?:[\u2640\u2642]\uFE0F?(?:\u200D\u27A1\uFE0F?)?|\u27A1\uFE0F?))?|\uDDD1(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\uD83C[\uDF3E\uDF73\uDF7C\uDF84\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3\uDE70]|\uDD1D\u200D\uD83E\uDDD1|\uDDD1\u200D\uD83E\uDDD2(?:\u200D\uD83E\uDDD2)?|\uDDD2(?:\u200D\uD83E\uDDD2)?))|\uD83C(?:\uDFFB(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D(?:\uD83D\uDC8B\u200D)?\uD83E\uDDD1\uD83C[\uDFFC-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF84\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83E\uDDD1\uD83C[\uDFFC-\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3\uDE70]|\uDD1D\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFF]|\uDEEF\u200D\uD83E\uDDD1\uD83C[\uDFFC-\uDFFF])))?|\uDFFC(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D(?:\uD83D\uDC8B\u200D)?\uD83E\uDDD1\uD83C[\uDFFB\uDFFD-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF84\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83E\uDDD1\uD83C[\uDFFB\uDFFD-\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3\uDE70]|\uDD1D\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFF]|\uDEEF\u200D\uD83E\uDDD1\uD83C[\uDFFB\uDFFD-\uDFFF])))?|\uDFFD(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D(?:\uD83D\uDC8B\u200D)?\uD83E\uDDD1\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF84\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83E\uDDD1\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3\uDE70]|\uDD1D\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFF]|\uDEEF\u200D\uD83E\uDDD1\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF])))?|\uDFFE(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D(?:\uD83D\uDC8B\u200D)?\uD83E\uDDD1\uD83C[\uDFFB-\uDFFD\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF84\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFD\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3\uDE70]|\uDD1D\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFF]|\uDEEF\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFD\uDFFF])))?|\uDFFF(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D(?:\uD83D\uDC8B\u200D)?\uD83E\uDDD1\uD83C[\uDFFB-\uDFFE]|\uD83C[\uDF3E\uDF73\uDF7C\uDF84\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFE])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3\uDE70]|\uDD1D\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFF]|\uDEEF\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFE])))?))?|\uDEF1(?:\uD83C(?:\uDFFB(?:\u200D\uD83E\uDEF2\uD83C[\uDFFC-\uDFFF])?|\uDFFC(?:\u200D\uD83E\uDEF2\uD83C[\uDFFB\uDFFD-\uDFFF])?|\uDFFD(?:\u200D\uD83E\uDEF2\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF])?|\uDFFE(?:\u200D\uD83E\uDEF2\uD83C[\uDFFB-\uDFFD\uDFFF])?|\uDFFF(?:\u200D\uD83E\uDEF2\uD83C[\uDFFB-\uDFFE])?))?)/g;
-  };
-
-  // src/stuff/emoji.ts
-  var cached = null;
-  var fallbackMode = false;
-  function buildRegex() {
+  // src/stuff/api.ts
+  var cachedToken = null;
+  function getToken() {
+    if (cachedToken) return cachedToken;
     try {
-      const r = emoji_regex_default();
-      if (r) {
-        r.exec("\u{1F600}");
-        return r;
+      const b = getBunny();
+      const v = getVd();
+      const mod = b?.metro?.findByProps?.("getToken") ?? v?.metro?.findByProps?.("getToken");
+      const t = mod?.getToken?.();
+      if (typeof t === "string" && t.length > 10) {
+        cachedToken = t;
+        return t;
       }
     } catch {
     }
-    fallbackMode = true;
-    return new RegExp(
-      "(?:[\\uD83C\\uDDE6-\\uD83C\\uDDFF]{2}|[\\uD83C-\\uD83E][\\uDC00-\\uDFFF](?:[\\uFE0F]|\\uD83C[\\uDFFB-\\uDFFF]|\\u200D[\\uD83C-\\uD83E][\\uDC00-\\uDFFF])*|[#*0-9]\\u20E3|[\\u00A9\\u00AE\\u203C\\u2049\\u2122\\u2139\\u2194-\\u21AA\\u231A-\\u231B\\u2328\\u23CF\\u23E9-\\u23FA\\u24C2\\u25AA\\u25AB\\u25B6\\u25C0\\u25FB-\\u25FE\\u2600-\\u27BF\\u2934\\u2935\\u2B00-\\u2B55\\u3030\\u303D\\u3297\\u3299]\\uFE0F?)",
-      "g"
-    );
+    return null;
   }
-  function getEmojiRe() {
-    if (!cached) cached = buildRegex();
-    cached.lastIndex = 0;
-    return cached;
-  }
-  function isEmojiChar(text) {
-    if (!text) return false;
-    const re = getEmojiRe();
-    const m = re.exec(text);
-    return !!m && m[0] === text && m.index === 0;
-  }
-  function fromCodePoints(cps) {
+  var API_BASE = "https://discord.com/api/v9";
+  async function apiPost(path, body) {
+    const fallback = { ok: false, status: 0, data: null };
     try {
-      return String.fromCodePoint(...cps.map((c) => Number.parseInt(c, 16)));
-    } catch {
-      return "";
-    }
-  }
-  var APPLE_BASE = "https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.1.2/img/apple/64/";
-  function appleUrlFromEmoji2(emoji) {
-    if (!emoji || !isEmojiChar(emoji)) return null;
-    try {
-      const cps = Array.from(emoji).map((c) => c.codePointAt(0).toString(16));
-      if (!cps.length || cps.length > 14) return null;
-      return APPLE_BASE + cps.join("-") + ".png";
-    } catch {
-      return null;
-    }
-  }
-  var URL_IN_STR = /https?:\/\/[^\s"'<>)]+/g;
-  var ASSET_IN_STR = /asset:\/emoji-[0-9a-fA-F](?:[0-9a-fA-F-]*[0-9a-fA-F])?(?:\.png|\.webp)?/g;
-  function iosizeString(s) {
-    if (typeof s !== "string") return s;
-    try {
-      if (s.startsWith("asset:/emoji-")) {
-        const a = appleUrlFromEmoji2(uriToEmoji2(s) ?? "");
-        return a ?? s;
-      }
-      if (s.indexOf("http") === -1 && s.indexOf("asset:/") === -1) return s;
-      return s.replace(URL_IN_STR, (u) => {
-        const e = uriToEmoji2(u);
-        if (!e) return u;
-        return appleUrlFromEmoji2(e) ?? u;
-      }).replace(ASSET_IN_STR, (m) => {
-        const e = uriToEmoji2(m);
-        if (!e) return m;
-        return appleUrlFromEmoji2(e) ?? m;
+      const token = getToken();
+      if (!token) return fallback;
+      const r = await fetch(API_BASE + path, {
+        method: "POST",
+        headers: {
+          Authorization: token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body ?? {})
       });
+      let data = null;
+      try {
+        data = await r.json();
+      } catch {
+      }
+      return { ok: r.ok, status: r.status, data };
     } catch {
-      return s;
+      return fallback;
     }
   }
-  function walkStrings(v, depth) {
-    if (depth > 8 || v == null) return;
-    const t = typeof v;
-    if (t === "string") return;
-    if (t !== "object") return;
-    if (Array.isArray(v)) {
-      for (let i = 0; i < v.length; i++) {
-        if (typeof v[i] === "string") v[i] = iosizeString(v[i]);
-        else walkStrings(v[i], depth + 1);
-      }
-      return;
-    }
-    for (const k of Object.keys(v)) {
-      const val = v[k];
-      if (typeof val === "string") v[k] = iosizeString(val);
-      else walkStrings(val, depth + 1);
-    }
-  }
-  var HEX_TOKEN = /^[0-9a-f]{1,7}$/i;
-  var EMOJI_URI_HOSTS = new RegExp(
-    "(?:^|//)(?:cdn\\.discordapp\\.com/emojis/|twemoji\\.maxcdn\\.com/|cdn\\.jsdelivr\\.net/(?:gh/jdecked/twemoji@[^/]+/assets/|gh/twitter/twemoji@[^/]+/assets/)|cdnjs\\.cloudflare\\.com/ajax/libs/twemoji/|abs\\.twimg\\.com/emoji/v2/)"
-  );
-  function uriToEmoji2(uri) {
-    if (typeof uri !== "string") return null;
+
+  // src/stuff/quests.ts
+  var SUPPORTED = ["WATCH_VIDEO", "WATCH_VIDEO_ON_MOBILE"];
+  function findQuestsStore() {
     try {
-      if (uri.startsWith("asset:/emoji-")) {
-        const name = uri.slice("asset:/emoji-".length).replace(/\.(png|webp).*$/i, "");
-        const emoji2 = fromCodePoints(name.split("-"));
-        return isEmojiChar(emoji2) ? emoji2 : null;
-      }
-      const path = uri.split("?")[0];
-      if (!EMOJI_URI_HOSTS.test(path)) return null;
-      const m = path.match(/([0-9a-f]+(?:-[0-9a-f]+)*)\.(?:png|svg)$/i);
-      if (!m) return null;
-      const cps = m[1].toLowerCase().split("-");
-      if (!cps.every((t) => HEX_TOKEN.test(t))) return null;
-      const emoji = fromCodePoints(cps);
-      return isEmojiChar(emoji) ? emoji : null;
+      const b = getBunny();
+      const v = getVd();
+      const store = b?.metro?.findByProps?.("getQuest") ?? v?.metro?.findByProps?.("getQuest");
+      return store ?? null;
     } catch {
       return null;
     }
   }
-
-  // src/stuff/rows.ts
-  function iterateContent(rows) {
+  function listQuests() {
     const out = [];
-    let header;
-    let converted = 0;
-    for (const original of rows) {
-      let row = original;
-      if (row?.type === "emoji") {
-        row = { type: "text", content: row.surrogate };
-        converted++;
-      }
-      if ("content" in row && Array.isArray(row.content)) {
-        const [c, n] = iterateContent(row.content);
-        row.content = c;
-        converted += n;
-      }
-      if ("items" in row && Array.isArray(row.items)) {
-        const [it, n] = iterateContent(row.items);
-        row.items = it;
-        converted += n;
-      }
-      if ("jumboable" in original && original.jumboable && !header) {
-        header = { type: "heading", level: 1, content: [] };
-      }
-      if ((original.type === "emoji" || original.type === "customEmoji") && !original.jumboable && header) {
-        out.push(header);
-        header = void 0;
-      }
-      if (header) header.content.push(row);
-      else out.push(row);
-    }
-    if (header) out.push(header);
-    return [out, converted];
-  }
-  function convertMessageRows(rows, mode) {
-    let converted = 0;
-    for (const row of rows) {
-      if (row?.type === 1 && row.message?.content) {
-        if (mode === "ios") {
-          walkStrings(row.message, 0);
-          converted++;
-        } else {
-          const [content, n] = iterateContent(row.message.content);
-          row.message.content = content;
-          converted += n;
-        }
-      }
-    }
-    return converted;
-  }
-  function getNativeModule(...names) {
-    for (const name of names) {
-      const turbo = globalThis.__turboModuleProxy;
-      if (typeof turbo === "function") {
+    try {
+      const store = findQuestsStore();
+      const map = store?.quests;
+      if (!map || typeof map.values !== "function") return out;
+      for (const q of map.values()) {
         try {
-          const m = turbo(name);
-          if (m) return m;
-        } catch {
-        }
-      }
-      const nmp = globalThis.nativeModuleProxy;
-      if (nmp?.[name]) return nmp[name];
-    }
-    return void 0;
-  }
-  function getChatModule() {
-    return getNativeModule("NativeChatModule", "DCDChatManager");
-  }
-  function patchRows(callback) {
-    const mod = getChatModule();
-    if (!mod?.updateRows) return null;
-    const patcher = getPatcher();
-    if (!patcher?.before || typeof patcher.before !== "function") return null;
-    return patcher.before("updateRows", mod, (args) => {
-      try {
-        const rows = JSON.parse(args[1]);
-        callback(rows);
-        args[1] = JSON.stringify(rows);
-      } catch (e) {
-        console.error("[SystemEmojisEverywhere] rows:", e?.stack ?? e);
-      }
-    });
-  }
-
-  // src/stuff/images.ts
-  function installImagePatch(onHit) {
-    const RN = getRN();
-    const React = getReact();
-    const OrigImage = RN?.Image;
-    if (!RN || !React || !OrigImage) {
-      return {
-        unwind: () => {
-        },
-        ok: false,
-        msg: "faltan: " + [RN ? "" : "RN", OrigImage ? "" : "Image", React ? "" : "React"].filter(Boolean).join(", ")
-      };
-    }
-    const wrapper = function EmojiAwareImage(props) {
-      try {
-        const emoji = uriToEmoji2(props?.source?.uri);
-        const appleUri = emoji ? appleUrlFromEmoji2(emoji) : null;
-        if (appleUri && appleUri !== props.source.uri) {
-          try {
-            onHit?.();
-          } catch {
-          }
-          return React.createElement(OrigImage, {
-            ...props,
-            source: { ...props.source ?? {}, uri: appleUri }
+          if (!q?.userStatus?.enrolledAt) continue;
+          if (q.userStatus?.completedAt) continue;
+          if (new Date(q.config?.expiresAt).getTime() <= Date.now()) continue;
+          const taskConfig = q.config?.taskConfig ?? q.config?.taskConfigV2;
+          if (!taskConfig?.tasks) continue;
+          const allTasks = Object.keys(taskConfig.tasks);
+          const taskName = SUPPORTED.find((t) => allTasks.includes(t)) ?? allTasks[0];
+          if (!taskName) continue;
+          const taskData = taskConfig.tasks[taskName];
+          out.push({
+            id: q.id,
+            name: q.config?.messages?.questName ?? q.id,
+            taskName,
+            secondsNeeded: taskData?.target ?? 0,
+            secondsDone: q.userStatus?.progress?.[taskName]?.value ?? 0,
+            expiresAt: q.config?.expiresAt ?? "",
+            supported: SUPPORTED.includes(taskName),
+            raw: q
           });
-        }
-      } catch {
-      }
-      return React.createElement(OrigImage, props);
-    };
-    let installed = false;
-    try {
-      RN.Image = wrapper;
-      installed = RN.Image === wrapper;
-    } catch {
-    }
-    if (!installed) {
-      try {
-        Object.defineProperty(RN, "Image", {
-          value: wrapper,
-          writable: true,
-          configurable: true
-        });
-        installed = RN.Image === wrapper;
-      } catch {
-      }
-    }
-    if (!installed) {
-      return {
-        unwind: () => {
-        },
-        ok: false,
-        msg: "RN.Image es de solo lectura en tu build"
-      };
-    }
-    return {
-      unwind: () => {
-        try {
-          RN.Image = OrigImage;
         } catch {
-          try {
-            Object.defineProperty(RN, "Image", {
-              value: OrigImage,
-              writable: true,
-              configurable: true
-            });
-          } catch {
-          }
         }
-      },
-      ok: true
-    };
-  }
-
-  // src/stuff/cehook.ts
-  function installCreateElementHook(onHit) {
-    const React = getReact();
-    const Orig = React?.createElement;
-    if (!React || typeof Orig !== "function") {
-      reportError("createElement", "React o createElement no disponibles");
-      return null;
-    }
-    if (Orig.__seeWrapped) return null;
-    const fastRewrite = (props) => {
-      try {
-        if (!props || typeof props !== "object") return;
-        const s = props.source;
-        if (s && typeof s === "object" && typeof s.uri === "string") {
-          const nu = iosizeString(s.uri);
-          if (nu !== s.uri) {
-            props.source = { ...s, uri: nu };
-            try {
-              onHit?.();
-            } catch {
-            }
-          }
-          return;
-        }
-        if (typeof props.uri === "string") {
-          const nu = iosizeString(props.uri);
-          if (nu !== props.uri) {
-            props.uri = nu;
-            try {
-              onHit?.();
-            } catch {
-            }
-          }
-        }
-      } catch {
       }
-    };
-    const wrapped = function(type, config, ...children) {
-      if (config && typeof config === "object") fastRewrite(config);
-      return Orig.call(this, type, config, ...children);
-    };
-    try {
-      Object.defineProperty(wrapped, "__seeWrapped", { value: true });
     } catch {
     }
-    let installed = false;
-    try {
-      React.createElement = wrapped;
-      installed = React.createElement === wrapped;
-    } catch {
-    }
-    if (!installed) {
-      try {
-        Object.defineProperty(React, "createElement", {
-          value: wrapped,
-          writable: true,
-          configurable: true
-        });
-        installed = React.createElement === wrapped;
-      } catch {
-      }
-    }
-    if (!installed) {
-      reportError("createElement", "no se pudo instalar (objeto sellado)");
-      return null;
-    }
-    return () => {
-      try {
-        React.createElement = Orig;
-      } catch {
-      }
-    };
+    return out;
   }
-
-  // src/stuff/controller.ts
-  var vstorage = getStorage();
-  function getMode() {
-    try {
-      return vstorage.mode === "system" ? "system" : "ios";
-    } catch {
-      return "ios";
+  var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function completeVideoQuest(quest, onProgress) {
+    if (!quest.supported) return { ok: false, instant: false, error: "no soportada en m\xF3vil" };
+    let done = Math.min(quest.secondsDone, quest.secondsNeeded);
+    const target = quest.secondsNeeded;
+    onProgress?.(done, target);
+    const fast = await apiPost(
+      `/quests/${quest.id}/video-progress?force=true`,
+      { timestamp: target }
+    );
+    if (fast.ok && fast.data?.completed_at != null) {
+      onProgress?.(target, target);
+      return { ok: true, instant: true };
     }
-  }
-  function setMode(m) {
-    try {
-      vstorage.mode = m;
-    } catch {
-    }
-  }
-  function getPatchMessages() {
-    try {
-      return vstorage.patchMessages !== false;
-    } catch {
-      return true;
-    }
-  }
-  function getPatchImages() {
-    try {
-      return vstorage.patchImages !== false;
-    } catch {
-      return true;
-    }
-  }
-  function setFlag(key, v) {
-    try {
-      vstorage[key] = v;
-    } catch {
-    }
-  }
-  var state = {
-    chat: false,
-    images: false,
-    err: "",
-    sample: "",
-    metro: 0,
-    ce: false,
-    scanMods: -1,
-    scanCand: 0
-  };
-  var counters = { rows: 0, emoji: 0, imgs: 0 };
-  var unwinds = [];
-  var ceUnwind = null;
-  function unwindAll() {
-    let u;
-    while (u = unwinds.pop()) {
-      try {
-        u();
-      } catch {
-      }
-    }
-  }
-  function resetDebug() {
-    counters.rows = 0;
-    counters.emoji = 0;
-    counters.imgs = 0;
-  }
-  function applyAll() {
-    unwindAll();
-    state.chat = false;
-    state.images = false;
-    state.ce = false;
-    resetDebug();
-    if (ceUnwind) {
-      try {
-        ceUnwind();
-      } catch {
-      }
-      ceUnwind = null;
-    }
-    if (getMode() === "ios") {
-      ceUnwind = installCreateElementHook(() => {
-        counters.imgs++;
+    let completedAt = null;
+    while (done < target) {
+      await sleep(7e3);
+      const timestamp = Math.min(target, done + 7);
+      const res = await apiPost(`/quests/${quest.id}/video-progress`, {
+        timestamp: Math.min(target, timestamp + Math.random())
       });
-      state.ce = !!ceUnwind;
-    }
-    if (getPatchMessages()) {
-      const mod = getChatModule();
-      if (!mod || typeof mod.updateRows !== "function") {
-        console.warn("[SystemEmojisEverywhere] m\xF3dulo del chat no encontrado");
-      } else {
-        const rowsPatch = patchRows((rows) => {
-          counters.rows++;
-          if (!state.sample) {
-            try {
-              const hit = rows.find((r) => r?.type === 1 && Array.isArray(r.message?.content) && r.message.content.some((c) => c && c.type === "emoji"));
-              if (hit) state.sample = JSON.stringify(hit.message.content).slice(0, 700);
-            } catch {
-            }
-          }
-          counters.emoji += convertMessageRows(rows, getMode());
-        });
-        if (rowsPatch) {
-          unwinds.push(rowsPatch);
-          state.chat = true;
-        }
+      if (res.ok && res.data?.completed_at != null) {
+        completedAt = res.data.completed_at;
+        done = target;
+        break;
       }
+      done = Math.min(target, timestamp);
+      onProgress?.(done, target);
     }
-    if (getPatchImages()) {
-      const img = installImagePatch(() => {
-        counters.imgs++;
+    if (completedAt == null && done >= target) {
+      const last = await apiPost(`/quests/${quest.id}/video-progress`, {
+        timestamp: target
       });
-      unwinds.push(img.unwind);
-      state.images = img.ok;
-      state.err = img.ok ? "" : `im\xE1genes: ${img.msg ?? "no disponible"}`;
+      completedAt = last.data?.completed_at ?? null;
     }
-  }
-
-  // src/stuff/metro.ts
-  var MAX_CANDIDATE_MODULES = 60;
-  var MAX_FNS_PER_MODULE = 120;
-  function isReactEl(x) {
-    return !!x && typeof x === "object" && !!x.$$typeof;
-  }
-  function rewriteUriTarget(props) {
-    if (!props || typeof props !== "object") return false;
-    const s = props.source;
-    if (globalThis.__SEE_DBG) {
-      const emo = typeof s?.uri === "string" ? uriToEmoji(s.uri) : null;
-      console.log(
-        "[SEE-uri] uri:",
-        String(s?.uri).slice(0, 44),
-        "| emoji:",
-        JSON.stringify(emo),
-        "| apple:",
-        appleUrlFromEmoji(emo ?? ""),
-        "| iosize:",
-        iosizeString(s?.uri)?.slice(0, 50)
-      );
-    }
-    if (s && typeof s === "object" && typeof s.uri === "string") {
-      const nu = iosizeString(s.uri);
-      if (nu !== s.uri) {
-        props.source = { ...s, uri: nu };
-        return true;
-      }
-      return false;
-    }
-    if (typeof props.uri === "string") {
-      const nu = iosizeString(props.uri);
-      if (nu !== props.uri) {
-        props.uri = nu;
-        return true;
-      }
-    }
-    return false;
-  }
-  var SEEN = /* @__PURE__ */ new WeakSet();
-  function walkEl(el, depth) {
-    if (!el || depth > 12 || SEEN.has(el)) return 0;
-    let changed = 0;
-    try {
-      if (isReactEl(el)) {
-        if (rewriteUriTarget(el.props)) changed++;
-        const ch = el.props?.children;
-        if (Array.isArray(ch)) {
-          for (const c of ch) changed += walkEl(c, depth + 1);
-        } else {
-          changed += walkEl(ch, depth + 1);
-        }
-      } else if (Array.isArray(el)) {
-        for (const c of el) changed += walkEl(c, depth + 1);
-      } else if (typeof el === "object") {
-        if (rewriteUriTarget(el)) changed++;
-        const ch = el.children ?? el.props?.children;
-        if (ch) changed += walkEl(ch, depth + 1);
-      }
-    } catch {
-    }
-    return changed;
-  }
-  function wrapComponent(fn) {
-    const wrapped = function(...args) {
-      const out = fn.apply(this, args);
-      if (out) {
-        try {
-          walkEl(out, 0);
-        } catch {
-        }
-      }
-      return out;
-    };
-    try {
-      Object.defineProperty(wrapped, "name", { value: fn.name || "wrapped", configurable: true });
-    } catch {
-    }
-    return wrapped;
-  }
-  function shouldWrapFn(f) {
-    try {
-      const src = Function.prototype.toString.call(f);
-      return src.includes("surrogate") || src.includes("emoji-") || src.includes("asset:/");
-    } catch {
-      return false;
-    }
-  }
-  function hookExports(exps, depth, budget) {
-    if (!exps || depth > 3 || budget.n <= 0) return 0;
-    let hooked = 0;
-    let keys = [];
-    try {
-      keys = Object.keys(exps);
-    } catch {
-      return 0;
-    }
-    for (const k of keys) {
-      if (budget.n <= 0) break;
-      let cur;
-      try {
-        cur = exps[k];
-      } catch {
-        continue;
-      }
-      budget.n--;
-      if (typeof cur === "function" && shouldWrapFn(cur)) {
-        try {
-          const w = wrapComponent(cur);
-          Object.defineProperty(exps, k, { value: w, writable: true, configurable: true });
-          hooked++;
-          continue;
-        } catch {
-        }
-      }
-      if (cur && typeof cur === "object" && !Array.isArray(cur)) {
-        hooked += hookExports(cur, depth + 1, budget);
-      }
-    }
-    return hooked;
-  }
-  function scanAndHookEmojiRenderers() {
-    state.metro = 0;
-    state.scanMods = -1;
-    state.scanCand = 0;
-    try {
-      const mods = globalThis.modules;
-      const req = globalThis.__r;
-      if (!mods || typeof req !== "function") return;
-      const ids = [];
-      for (const id in mods) {
-        state.scanMods++;
-        let src = "";
-        try {
-          const fac = mods[id]?.factory;
-          if (typeof fac !== "function") continue;
-          src = Function.prototype.toString.call(fac);
-        } catch {
-          continue;
-        }
-        if (src.indexOf("surrogate") !== -1) ids.push(id);
-      }
-      state.scanCand = ids.length;
-      let hooked = 0;
-      for (const id of ids.slice(0, MAX_CANDIDATE_MODULES)) {
-        try {
-          const exps = req(Number(id));
-          hooked += hookExports(exps, 0, { n: MAX_FNS_PER_MODULE });
-        } catch {
-        }
-      }
-      state.metro = hooked;
-    } catch {
-    }
+    onProgress?.(done, target);
+    return completedAt != null ? { ok: true, instant: false } : { ok: false, instant: false, error: "el servidor no confirm\xF3 la finalizaci\xF3n" };
   }
 
   // src/index.tsx
-  var VERSION = "v17";
-  var SettingsPanel = () => null;
-  function getSettingsPanel() {
-    if (!settingsCache) settingsCache = buildSettings();
-    return settingsCache;
+  var VERSION = "q1";
+  var state = {
+    quests: [],
+    busy: /* @__PURE__ */ new Set(),
+    log: "",
+    lastRefresh: 0
+  };
+  function refresh() {
+    try {
+      state.quests = listQuests();
+      state.lastRefresh = Date.now();
+    } catch (e) {
+      reportError("listar misiones", e);
+    }
   }
-  var settingsCache = null;
+  async function runQuest(q, rerender) {
+    if (state.busy.has(q.id)) return;
+    state.busy.add(q.id);
+    state.log = `Ejecutando: ${q.name}\u2026`;
+    rerender();
+    try {
+      const res = await completeVideoQuest(q, (done, needed) => {
+        q.secondsDone = done;
+        state.log = `${q.name}: ${done}/${needed}s`;
+        rerender();
+      });
+      if (res.ok) {
+        state.log = `\u2705 ${q.name}${res.instant ? " (instant\xE1nea)" : " completada"} \u2014 reclam\xE1 la recompensa en la pesta\xF1a Misiones`;
+        toast(state.log);
+      } else {
+        state.log = `\u26A0 ${q.name}: ${res.error ?? "fall\xF3"}`;
+        toast(state.log);
+      }
+    } catch (e) {
+      state.log = `\u2717 ${q.name}: ${String(e?.message || e).slice(0, 120)}`;
+      reportError("completar misi\xF3n", e);
+    } finally {
+      state.busy.delete(q.id);
+      refresh();
+      rerender();
+    }
+  }
   function buildSettings() {
     try {
       const RN = getRN();
@@ -802,141 +320,108 @@ var __vd_plugin = (() => {
         reportError("ajustes", "ReactNative/React no disponibles");
         return () => null;
       }
-      const { View, Text, Switch, ScrollView, StyleSheet } = RN;
+      const { View, Text, ScrollView, StyleSheet } = RN;
       const styles = StyleSheet.create({
         page: { flex: 1 },
-        body: { padding: 12, gap: 14 },
-        row: { flexDirection: "row", alignItems: "center", gap: 8 },
-        title: { fontSize: 15, fontWeight: "700" },
+        body: { padding: 12, gap: 12 },
+        title: { fontSize: 16, fontWeight: "700" },
         sub: { fontSize: 13, opacity: 0.7 },
+        card: { borderRadius: 10, borderWidth: 1, borderColor: "#3a3a45", padding: 10, gap: 4 },
+        qname: { fontSize: 14, fontWeight: "600" },
         mono: { fontFamily: "monospace", fontSize: 11, opacity: 0.8 },
         pill: {
-          paddingHorizontal: 10,
-          paddingVertical: 4,
-          borderRadius: 14,
-          borderWidth: 1,
-          borderColor: "#5865f2",
-          marginHorizontal: 3
+          alignSelf: "flex-start",
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          borderRadius: 16,
+          backgroundColor: "#5865f2",
+          marginTop: 4
         },
-        pillOn: { backgroundColor: "#5865f2" },
+        pillOff: { backgroundColor: "#4a4a55" },
         pillTxt: { color: "#fff", fontSize: 13 },
+        barBg: { height: 6, borderRadius: 3, backgroundColor: "#3a3a45", overflow: "hidden" },
+        barFg: { height: 6, backgroundColor: "#23a55a" },
         err: { color: "#ff5252", fontSize: 12 }
       });
-      const Toggle = (props) => React.createElement(
-        View,
-        { style: styles.row },
-        React.createElement(Text, { style: { flex: 1 } }, props.label),
-        React.createElement(Switch, {
-          value: !!props.value,
-          onValueChange: props.onChange
-        })
+      const Btn = (props) => React.createElement(
+        Text,
+        { style: [styles.pill, props.disabled ? styles.pillOff : null], onPress: props.disabled ? void 0 : props.onPress },
+        props.label
       );
+      const TaskBadge = (t) => {
+        const map = {
+          WATCH_VIDEO: "\u{1F4FA} video",
+          WATCH_VIDEO_ON_MOBILE: "\u{1F4F1} video m\xF3vil",
+          PLAY_ON_DESKTOP: "\u{1F3AE} juego (PC)",
+          STREAM_ON_DESKTOP: "\u{1F3AC} stream (PC)",
+          PLAY_ACTIVITY: "\u{1F3A4} actividad"
+        };
+        return map[t] ?? t;
+      };
       return function Settings() {
         const [, force] = React.useState(0);
         const rerender = () => force((n) => n + 1);
+        if (!getToken()) {
+          return React.createElement(
+            ScrollView,
+            { style: styles.page, contentContainerStyle: styles.body },
+            React.createElement(Text, { style: styles.title }, "Quest Farmer ", VERSION),
+            React.createElement(
+              Text,
+              { style: styles.err },
+              "No se pudo obtener el token. Abre Discord y vuelve a entrar a ajustes."
+            )
+          );
+        }
+        const cards = state.quests.map((q) => {
+          const pct = q.secondsNeeded > 0 ? Math.min(1, q.secondsDone / q.secondsNeeded) : 0;
+          const running = state.busy.has(q.id);
+          return React.createElement(
+            View,
+            { key: q.id, style: styles.card },
+            React.createElement(Text, { style: styles.qname }, q.name),
+            React.createElement(Text, { style: styles.mono }, TaskBadge(q.taskName)),
+            React.createElement(
+              View,
+              { style: styles.barBg },
+              React.createElement(View, { style: [styles.barFg, { width: `${Math.round(pct * 100)}%` }] })
+            ),
+            React.createElement(
+              Text,
+              { style: styles.mono },
+              `${Math.floor(q.secondsDone)}s / ${Math.floor(q.secondsNeeded)}s`
+            ),
+            q.supported ? React.createElement(Btn, {
+              label: running ? "Ejecutando\u2026" : "\u25B6 Completar",
+              disabled: running,
+              onPress: () => runQuest(q, rerender)
+            }) : React.createElement(Text, { style: styles.sub }, "No soportada en m\xF3vil")
+          );
+        });
         return React.createElement(
           ScrollView,
           { style: styles.page, contentContainerStyle: styles.body },
-          React.createElement(
-            Text,
-            { style: styles.title },
-            "System Emojis Everywhere ",
-            VERSION
-          ),
+          React.createElement(Text, { style: styles.title }, "Quest Farmer ", VERSION),
           React.createElement(
             Text,
             { style: styles.sub },
-            "Reemplaza los Twemoji de Discord por emojis de iOS (o del sistema)."
+            "Completa autom\xE1ticamente las misiones de video de Discord."
           ),
-          React.createElement(Toggle, {
-            label: "Mensajes (filas del chat)",
-            value: getPatchMessages(),
-            onChange: (v) => {
-              setFlag("patchMessages", v);
-              try {
-                applyAll();
-              } catch {
-              }
-              rerender();
-            }
-          }),
           React.createElement(
             View,
-            { style: styles.row },
-            React.createElement(
-              Text,
-              { style: { flex: 1 } },
-              "Estilo:"
-            ),
-            React.createElement(
-              Text,
-              {
-                style: [styles.pill, styles.pillTxt, getMode() === "ios" ? styles.pillOn : null],
-                onPress: () => {
-                  setMode("ios");
-                  try {
-                    applyAll();
-                  } catch {
-                  }
-                  rerender();
-                }
-              },
-              " iOS "
-            ),
-            React.createElement(
-              Text,
-              {
-                style: [styles.pill, styles.pillTxt, getMode() === "system" ? styles.pillOn : null],
-                onPress: () => {
-                  setMode("system");
-                  try {
-                    applyAll();
-                  } catch {
-                  }
-                  rerender();
-                }
-              },
-              " Sistema "
-            )
-          ),
-          React.createElement(Toggle, {
-            label: "Im\xE1genes (reacciones/embeds \u2192 Apple) [recomendado]",
-            value: getPatchImages(),
-            onChange: (v) => {
-              setFlag("patchImages", v);
-              try {
-                applyAll();
-              } catch {
-              }
+            { style: { flexDirection: "row", gap: 8 } },
+            React.createElement(Btn, { label: "\u{1F504} Actualizar lista", onPress: () => {
+              refresh();
               rerender();
-            }
-          }),
-          React.createElement(
+            } })
+          ),
+          cards.length === 0 ? React.createElement(
             Text,
-            { style: styles.mono },
-            `createElement: ${state.ce ? "s\xED" : "no"} | m\xF3dulos: ${state.scanMods ?? "?"} | hookeados: ${state.metro ?? 0}
-chat conectado: ${state.chat ? "s\xED" : "no"}
-modo: ${getMode() === "ios" ? "iOS" : "sistema"}
-im\xE1genes parcheadas: ${state.images ? "s\xED" : "no"}
-updateRows llamado: ${counters.rows}
-emojis convertidos: ${counters.emoji}
-im\xE1genes reemplazadas: ${counters.imgs}`
-          ),
-          state.err ? React.createElement(Text, { style: styles.err }, String(state.err)) : null,
-          state.sample ? React.createElement(
-            View,
-            null,
-            React.createElement(Text, { style: styles.sub }, "Muestra fila emoji:"),
-            React.createElement(Text, { style: styles.mono }, String(state.sample))
+            { style: styles.sub },
+            "No hay misiones activas sin completar.\nAcept\xE1 una misi\xF3n en la pesta\xF1a Misiones y volv\xE9 ac\xE1."
           ) : null,
-          React.createElement(
-            Text,
-            { style: styles.sub, onPress: () => {
-              resetDebug();
-              rerender();
-            } },
-            "Toc\xE1 aqu\xED para reiniciar el diagn\xF3stico."
-          )
+          ...cards,
+          state.log ? React.createElement(Text, { style: styles.mono }, String(state.log)) : null
         );
       };
     } catch (e) {
@@ -944,55 +429,28 @@ im\xE1genes reemplazadas: ${counters.imgs}`
       return () => null;
     }
   }
-  function onLoad() {
-    try {
-      applyAll();
-      if (getMode() === "ios") {
-        setTimeout(() => {
-          try {
-            scanAndHookEmojiRenderers();
-          } catch {
-          }
-        }, 1500);
-      }
-      state.err = "";
-      toast(`System Emojis ${VERSION}: activo \u2705`);
-    } catch (e) {
-      try {
-        state.err = String(e?.stack || e).slice(0, 300);
-      } catch {
-      }
-      reportError("onLoad", e);
-    }
-  }
-  function onUnload() {
-    try {
-      unwindAll();
-    } catch (e) {
-      reportError("onUnload", e);
-    }
-  }
-  function getSettings() {
-    if (!SettingsPanel) SettingsPanel = buildSettings();
-    return SettingsPanel;
+  var settingsCache = null;
+  function getSettingsPanel() {
+    if (!settingsCache) settingsCache = buildSettings();
+    return settingsCache;
   }
   function settings(props) {
     const React = getReact();
     const C = getSettingsPanel();
     return React?.createElement ? React.createElement(C, props) : C(props);
   }
-  try {
-    const instance = {
-      start: onLoad,
-      stop: onUnload,
-      manifest: { name: "System Emojis Everywhere", version: VERSION }
-    };
-    Object.defineProperty(instance, "SettingsComponent", {
-      configurable: true,
-      get: () => getSettingsPanel()
-    });
-    globalThis.plugin = instance;
-  } catch {
+  function onLoad() {
+    try {
+      refresh();
+      toast(`Quest Farmer ${VERSION}: ${state.quests.length} misi\xF3n(es) activa(s)`);
+    } catch (e) {
+      reportError("onLoad", e);
+    }
+  }
+  function onUnload() {
+  }
+  function getSettings() {
+    return getSettingsPanel();
   }
   return __toCommonJS(index_exports);
 })();

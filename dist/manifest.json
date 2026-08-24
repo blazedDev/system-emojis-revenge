@@ -1,6 +1,6 @@
 {
-    "name": "System Emojis Everywhere",
-    "description": "Usa los emojis del sistema en TODO Discord: mensajes, respuestas, reacciones, embeds y más. Sin puntos ciegos.",
+    "name": "Quest Farmer",
+    "description": "Completa automáticamente las misiones de video de Discord (orbs).",
     "authors": [
         {
             "name": "vos",
@@ -11,5 +11,5 @@
     "vendetta": {
         "icon": "UserCircleIcon"
     },
-    "hash": "d3bb38ec6007d3b8e847fea474b066be2c215e33a661fb9bf2319a2bb29b9253"
+    "hash": "74a25e46c60e6671967fc7757eb49b649ccdfacbc63bfa84daa72af023ec4e1b"
 }

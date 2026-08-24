@@ -1,14 +1,14 @@
 {
-  "name": "System Emojis Everywhere",
-  "description": "Usa los emojis del sistema en TODO Discord: mensajes, respuestas, reacciones, embeds y más. Sin puntos ciegos.",
-  "authors": [
-    {
-      "name": "vos",
-      "id": "0"
+    "name": "Quest Farmer",
+    "description": "Completa autom\u00e1ticamente las misiones de video de Discord (orbs).",
+    "authors": [
+        {
+            "name": "vos",
+            "id": "0"
+        }
+    ],
+    "main": "src/index.tsx",
+    "vendetta": {
+        "icon": "UserCircleIcon"
     }
-  ],
-  "main": "src/index.tsx",
-  "vendetta": {
-    "icon": "UserCircleIcon"
-  }
 }
