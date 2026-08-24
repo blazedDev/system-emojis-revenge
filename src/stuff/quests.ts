@@ -162,6 +162,7 @@ type ProgressCb = (done: number, needed: number) => void;
 export async function completeVideoQuest(
     quest: QuestInfo,
     onProgress?: ProgressCb,
+    onNote?: (s: string) => void,
 ): Promise<RunResult> {
     let done = Math.min(quest.secondsDone, quest.secondsNeeded);
     const target = quest.secondsNeeded;
@@ -174,6 +175,7 @@ export async function completeVideoQuest(
     }
 
     let completedAt: any = null;
+    let fails = 0;
     while (done < target) {
         await sleep(7000);
         const timestamp = Math.min(target, done + 7);
@@ -185,6 +187,13 @@ export async function completeVideoQuest(
             done = target;
             break;
         }
+        if (!res.ok) {
+            fails++;
+            onNote?.(`progreso rechazado (${res.status}), reintento ${fails}/5`);
+            if (fails >= 5) return { ok: false, error: `video-progress rechazado (${res.status})` };
+            continue; // el tiempo real sigue corriendo; no inventamos avance
+        }
+        fails = 0;
         done = Math.min(target, timestamp);
         onProgress?.(done, target);
     }
@@ -198,63 +207,80 @@ export async function completeVideoQuest(
 }
 
 // --- heartbeat genérico (juego / stream / actividad) ---
+// Regla crítica: `terminal:true` SOLO cuando el servidor ya acreditó la meta
+// (o completed_at). Un terminal anticipado CIERRA la sesión y la misión queda
+// cancelada sin completarse.
 async function completeHeartbeatQuest(
     quest: QuestInfo,
     intervalSec: number,
     buildBody: (terminal: boolean) => any,
     onProgress?: ProgressCb,
+    onNote?: (s: string) => void,
 ): Promise<RunResult> {
-    let done = Math.min(quest.secondsDone, quest.secondsNeeded);
     const target = quest.secondsNeeded;
+    let done = Math.min(quest.secondsDone, target);
     onProgress?.(done, target);
 
-    let silentBeats = 0;
-    while (done < target) {
-        await sleep(intervalSec * 1000);
-        const isLast = done + intervalSec >= target;
-        const res = await apiPost(`/quests/${quest.id}/heartbeat`, buildBody(isLast));
-        if (!res.ok) {
-            silentBeats++;
-            if (silentBeats >= 5) return { ok: false, error: `heartbeat rechazado (${res.status})` };
-        } else {
-            silentBeats = 0;
-            if (res.data?.completed_at != null) {
-                onProgress?.(target, target);
-                return { ok: true };
-            }
-            const p = Number(res.data?.progress?.[quest.taskName]?.value);
-            if (!isNaN(p) && p > 0) {
-                done = Math.max(done, Math.min(p, target));
-                onProgress?.(done, target);
-                continue;
-            }
-            if (res.data?.progress == null && isLast) {
-                // sin progreso ni confirmación: no inventamos avance
-                silentBeats++;
-                if (silentBeats >= 5) return { ok: false, error: "el servidor no acredita progreso" };
-            }
-        }
-        done = Math.min(target, done + intervalSec);
-        onProgress?.(done, target);
+    if (done >= target) {
+        const fin = await apiPost(`/quests/${quest.id}/heartbeat`, buildBody(true));
+        return fin.ok ? { ok: true } : { ok: false, error: `cierre rechazado (${fin.status})` };
     }
 
-    await apiPost(`/quests/${quest.id}/heartbeat`, buildBody(true));
-    return { ok: true };
+    let beats = 0;
+    let fails = 0;
+    while (done < target) {
+        await sleep(intervalSec * 1000);
+        beats++;
+        const res = await apiPost(`/quests/${quest.id}/heartbeat`, buildBody(false));
+        if (!res.ok) {
+            fails++;
+            onNote?.(`latido ${beats} rechazado (${res.status}), reintento ${fails}/5`);
+            if (fails >= 5) return { ok: false, error: `latidos rechazados (${res.status})` };
+            continue;
+        }
+        fails = 0;
+
+        if (res.data?.completed_at != null) {
+            onProgress?.(target, target);
+            return { ok: true };
+        }
+
+        const p = Number(res.data?.progress?.[quest.taskName]?.value);
+        if (!isNaN(p) && p > done) {
+            done = Math.min(p, target);
+            onProgress?.(done, target);
+        } else {
+            // sin progreso informado: estimar por latidos enviados, sin pasarse
+            done = Math.min(target, Math.min(quest.secondsDone, target) + beats * intervalSec);
+            onProgress?.(done, target);
+        }
+    }
+
+    // meta alcanzada según nuestro conteo: latido terminal para cerrar sesión
+    const fin = await apiPost(`/quests/${quest.id}/heartbeat`, buildBody(true));
+    if (fin.data?.completed_at != null) return { ok: true };
+    const fp = Number(fin.data?.progress?.[quest.taskName]?.value);
+    if (fin.ok && (isNaN(fp) || fp >= target)) return { ok: true };
+    return {
+        ok: false,
+        error: `el servidor acreditó ${isNaN(fp) ? "?" : fp}/${target}s al cerrar`,
+    };
 }
 
-export async function completeGameQuest(q: QuestInfo, onProgress?: ProgressCb): Promise<RunResult> {
+export async function completeGameQuest(q: QuestInfo, onProgress?: ProgressCb, onNote?: (s: string) => void): Promise<RunResult> {
     if (!q.appId) return { ok: false, error: "sin application_id en la misión" };
-    return completeHeartbeatQuest(q, 60, terminal => ({ application_id: q.appId, terminal }), onProgress);
+    return completeHeartbeatQuest(q, 60, terminal => ({ application_id: q.appId, terminal }), onProgress, onNote);
 }
 
 export async function completeStreamOrActivityQuest(
     q: QuestInfo,
     userId: string,
     onProgress?: ProgressCb,
+    onNote?: (s: string) => void,
 ): Promise<RunResult> {
     const key = makeStreamKey(userId) ?? `stream_${alnum()}`;
     const interval = q.kind === "activity" ? 20 : 30;
-    return completeHeartbeatQuest(q, interval, terminal => ({ stream_key: key, terminal }), onProgress);
+    return completeHeartbeatQuest(q, interval, terminal => ({ stream_key: key, terminal }), onProgress, onNote);
 }
 
 // --- aceptar misiones nuevas ---

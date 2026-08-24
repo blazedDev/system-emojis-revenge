@@ -11,13 +11,12 @@ import {
 } from "./stuff/quests";
 import { getToken, getUserId } from "./stuff/api";
 
-export const VERSION = "q2";
+export const VERSION = "q3";
 
 let state = {
     quests: [] as QuestInfo[],
-    busy: new Set<string>(),
+    current: null as string | null,
     log: "",
-    claiming: false,
 };
 
 function refresh() {
@@ -35,8 +34,33 @@ const KIND_META: Record<string, { label: string; hint: string }> = {
     activity: { label: "🎤 actividad", hint: "1 latido/20s — idealmente con alguien en el vc" },
 };
 
-async function runQuest(q: QuestInfo, rerender: () => void) {
-    if (state.busy.has(q.id)) return;
+// Cola secuencial: las misiones se procesan DE A UNA (igual que los scripts
+// de referencia). Sesiones simultáneas pueden hacer que Discord cancele.
+const queue: { q: QuestInfo; rerender: () => void }[] = [];
+let pumping = false;
+
+function runQuest(q: QuestInfo, rerender: () => void) {
+    if (queue.some(e => e.q.id === q.id)) return;
+    queue.push({ q, rerender });
+    state.log = `En cola: ${q.name}`;
+    rerender();
+    void pump();
+}
+
+async function pump() {
+    if (pumping) return;
+    pumping = true;
+    try {
+        while (queue.length > 0) {
+            const job = queue.shift()!;
+            await doRun(job.q, job.rerender);
+        }
+    } finally {
+        pumping = false;
+    }
+}
+
+async function doRun(q: QuestInfo, rerender: () => void) {
     if (!q.enrolled) {
         state.log = `Aceptando ${q.name}…`;
         rerender();
@@ -56,21 +80,21 @@ async function runQuest(q: QuestInfo, rerender: () => void) {
         return;
     }
 
-    state.busy.add(q.id);
     const meta = KIND_META[q.kind];
+    state.current = q.id;
     state.log = `${meta?.label ?? q.taskName}: ${q.name} (${meta?.hint ?? ""})`;
     rerender();
 
     let result: { ok: boolean; error?: string } = { ok: false, error: "tipo desconocido" };
     try {
         if (q.kind === "video") {
-            result = await completeVideoQuest(q, upd(q, rerender));
+            result = await completeVideoQuest(q, upd(q, rerender), note(rerender));
         } else if (q.kind === "game") {
-            result = await completeGameQuest(q, upd(q, rerender));
+            result = await completeGameQuest(q, upd(q, rerender), note(rerender));
         } else if (q.kind === "stream" || q.kind === "activity") {
             const uid = getUserId();
             result = uid
-                ? await completeStreamOrActivityQuest(q, uid, upd(q, rerender))
+                ? await completeStreamOrActivityQuest(q, uid, upd(q, rerender), note(rerender))
                 : { ok: false, error: "no se obtuvo tu id de usuario" };
         }
 
@@ -90,10 +114,17 @@ async function runQuest(q: QuestInfo, rerender: () => void) {
         state.log = `✗ ${q.name}: ${String(e?.message || e).slice(0, 120)}`;
         reportError("completar misión", e);
     } finally {
-        state.busy.delete(q.id);
+        state.current = null;
         refresh();
         rerender();
     }
+}
+
+function note(rerender: () => void) {
+    return (s: string) => {
+        state.log = s;
+        rerender();
+    };
 }
 
 function upd(q: QuestInfo, rerender: () => void) {
@@ -179,7 +210,6 @@ function buildSettings(): any {
 
             const cards = state.quests.map((q: QuestInfo) => {
                 const pct = q.secondsNeeded > 0 ? Math.min(1, q.secondsDone / q.secondsNeeded) : 0;
-                const running = state.busy.has(q.id);
                 const meta = KIND_META[q.kind];
                 return React.createElement(
                     View,
@@ -193,8 +223,8 @@ function buildSettings(): any {
                     q.runnable
                         ? React.createElement(Btn, {
                             key: `b${q.id}`,
-                            label: running ? "Ejecutando…" : q.enrolled ? "▶ Completar" : "▶ Aceptar y completar",
-                            disabled: running || !!(q.blockedUntil && q.blockedUntil > Date.now()),
+                            label: state.current === q.id ? "Ejecutando…" : q.enrolled ? "▶ Completar" : "▶ Aceptar y completar",
+                            disabled: state.current != null || !!(q.blockedUntil && q.blockedUntil > Date.now()),
                             onPress: () => runQuest(q, rerender),
                         })
                         : React.createElement(Text, { style: styles.sub }, "Tipo no soportado todavía"),

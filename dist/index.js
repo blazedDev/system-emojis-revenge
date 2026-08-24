@@ -305,7 +305,7 @@ var __vd_plugin = (() => {
     for (let i = 0; i < 32; i++) o += s[rand(s.length)];
     return o;
   };
-  async function completeVideoQuest(quest, onProgress) {
+  async function completeVideoQuest(quest, onProgress, onNote) {
     let done = Math.min(quest.secondsDone, quest.secondsNeeded);
     const target = quest.secondsNeeded;
     onProgress?.(done, target);
@@ -315,6 +315,7 @@ var __vd_plugin = (() => {
       return { ok: true };
     }
     let completedAt = null;
+    let fails = 0;
     while (done < target) {
       await sleep(7e3);
       const timestamp = Math.min(target, done + 7);
@@ -326,6 +327,13 @@ var __vd_plugin = (() => {
         done = target;
         break;
       }
+      if (!res.ok) {
+        fails++;
+        onNote?.(`progreso rechazado (${res.status}), reintento ${fails}/5`);
+        if (fails >= 5) return { ok: false, error: `video-progress rechazado (${res.status})` };
+        continue;
+      }
+      fails = 0;
       done = Math.min(target, timestamp);
       onProgress?.(done, target);
     }
@@ -336,49 +344,57 @@ var __vd_plugin = (() => {
     onProgress?.(done, target);
     return completedAt != null ? { ok: true } : { ok: false, error: "el servidor no confirm\xF3" };
   }
-  async function completeHeartbeatQuest(quest, intervalSec, buildBody, onProgress) {
-    let done = Math.min(quest.secondsDone, quest.secondsNeeded);
+  async function completeHeartbeatQuest(quest, intervalSec, buildBody, onProgress, onNote) {
     const target = quest.secondsNeeded;
+    let done = Math.min(quest.secondsDone, target);
     onProgress?.(done, target);
-    let silentBeats = 0;
+    if (done >= target) {
+      const fin2 = await apiPost(`/quests/${quest.id}/heartbeat`, buildBody(true));
+      return fin2.ok ? { ok: true } : { ok: false, error: `cierre rechazado (${fin2.status})` };
+    }
+    let beats = 0;
+    let fails = 0;
     while (done < target) {
       await sleep(intervalSec * 1e3);
-      const isLast = done + intervalSec >= target;
-      const res = await apiPost(`/quests/${quest.id}/heartbeat`, buildBody(isLast));
+      beats++;
+      const res = await apiPost(`/quests/${quest.id}/heartbeat`, buildBody(false));
       if (!res.ok) {
-        silentBeats++;
-        if (silentBeats >= 5) return { ok: false, error: `heartbeat rechazado (${res.status})` };
-      } else {
-        silentBeats = 0;
-        if (res.data?.completed_at != null) {
-          onProgress?.(target, target);
-          return { ok: true };
-        }
-        const p = Number(res.data?.progress?.[quest.taskName]?.value);
-        if (!isNaN(p) && p > 0) {
-          done = Math.max(done, Math.min(p, target));
-          onProgress?.(done, target);
-          continue;
-        }
-        if (res.data?.progress == null && isLast) {
-          silentBeats++;
-          if (silentBeats >= 5) return { ok: false, error: "el servidor no acredita progreso" };
-        }
+        fails++;
+        onNote?.(`latido ${beats} rechazado (${res.status}), reintento ${fails}/5`);
+        if (fails >= 5) return { ok: false, error: `latidos rechazados (${res.status})` };
+        continue;
       }
-      done = Math.min(target, done + intervalSec);
-      onProgress?.(done, target);
+      fails = 0;
+      if (res.data?.completed_at != null) {
+        onProgress?.(target, target);
+        return { ok: true };
+      }
+      const p = Number(res.data?.progress?.[quest.taskName]?.value);
+      if (!isNaN(p) && p > done) {
+        done = Math.min(p, target);
+        onProgress?.(done, target);
+      } else {
+        done = Math.min(target, Math.min(quest.secondsDone, target) + beats * intervalSec);
+        onProgress?.(done, target);
+      }
     }
-    await apiPost(`/quests/${quest.id}/heartbeat`, buildBody(true));
-    return { ok: true };
+    const fin = await apiPost(`/quests/${quest.id}/heartbeat`, buildBody(true));
+    if (fin.data?.completed_at != null) return { ok: true };
+    const fp = Number(fin.data?.progress?.[quest.taskName]?.value);
+    if (fin.ok && (isNaN(fp) || fp >= target)) return { ok: true };
+    return {
+      ok: false,
+      error: `el servidor acredit\xF3 ${isNaN(fp) ? "?" : fp}/${target}s al cerrar`
+    };
   }
-  async function completeGameQuest(q, onProgress) {
+  async function completeGameQuest(q, onProgress, onNote) {
     if (!q.appId) return { ok: false, error: "sin application_id en la misi\xF3n" };
-    return completeHeartbeatQuest(q, 60, (terminal) => ({ application_id: q.appId, terminal }), onProgress);
+    return completeHeartbeatQuest(q, 60, (terminal) => ({ application_id: q.appId, terminal }), onProgress, onNote);
   }
-  async function completeStreamOrActivityQuest(q, userId, onProgress) {
+  async function completeStreamOrActivityQuest(q, userId, onProgress, onNote) {
     const key = makeStreamKey(userId) ?? `stream_${alnum()}`;
     const interval = q.kind === "activity" ? 20 : 30;
-    return completeHeartbeatQuest(q, interval, (terminal) => ({ stream_key: key, terminal }), onProgress);
+    return completeHeartbeatQuest(q, interval, (terminal) => ({ stream_key: key, terminal }), onProgress, onNote);
   }
   async function enrollQuest(questId) {
     const full = await apiPost(
@@ -399,12 +415,11 @@ var __vd_plugin = (() => {
   }
 
   // src/index.tsx
-  var VERSION = "q2";
+  var VERSION = "q3";
   var state = {
     quests: [],
-    busy: /* @__PURE__ */ new Set(),
-    log: "",
-    claiming: false
+    current: null,
+    log: ""
   };
   function refresh() {
     try {
@@ -419,8 +434,28 @@ var __vd_plugin = (() => {
     stream: { label: "\u{1F3AC} stream", hint: "1 latido/30s \u2014 manten\xE9 la app abierta" },
     activity: { label: "\u{1F3A4} actividad", hint: "1 latido/20s \u2014 idealmente con alguien en el vc" }
   };
-  async function runQuest(q, rerender) {
-    if (state.busy.has(q.id)) return;
+  var queue = [];
+  var pumping = false;
+  function runQuest(q, rerender) {
+    if (queue.some((e) => e.q.id === q.id)) return;
+    queue.push({ q, rerender });
+    state.log = `En cola: ${q.name}`;
+    rerender();
+    void pump();
+  }
+  async function pump() {
+    if (pumping) return;
+    pumping = true;
+    try {
+      while (queue.length > 0) {
+        const job = queue.shift();
+        await doRun(job.q, job.rerender);
+      }
+    } finally {
+      pumping = false;
+    }
+  }
+  async function doRun(q, rerender) {
     if (!q.enrolled) {
       state.log = `Aceptando ${q.name}\u2026`;
       rerender();
@@ -439,19 +474,19 @@ var __vd_plugin = (() => {
       rerender();
       return;
     }
-    state.busy.add(q.id);
     const meta = KIND_META[q.kind];
+    state.current = q.id;
     state.log = `${meta?.label ?? q.taskName}: ${q.name} (${meta?.hint ?? ""})`;
     rerender();
     let result = { ok: false, error: "tipo desconocido" };
     try {
       if (q.kind === "video") {
-        result = await completeVideoQuest(q, upd(q, rerender));
+        result = await completeVideoQuest(q, upd(q, rerender), note(rerender));
       } else if (q.kind === "game") {
-        result = await completeGameQuest(q, upd(q, rerender));
+        result = await completeGameQuest(q, upd(q, rerender), note(rerender));
       } else if (q.kind === "stream" || q.kind === "activity") {
         const uid = getUserId();
-        result = uid ? await completeStreamOrActivityQuest(q, uid, upd(q, rerender)) : { ok: false, error: "no se obtuvo tu id de usuario" };
+        result = uid ? await completeStreamOrActivityQuest(q, uid, upd(q, rerender), note(rerender)) : { ok: false, error: "no se obtuvo tu id de usuario" };
       }
       if (result.ok) {
         state.log = `\u{1F381} ${q.name}: completada, reclamando recompensa\u2026`;
@@ -467,10 +502,16 @@ var __vd_plugin = (() => {
       state.log = `\u2717 ${q.name}: ${String(e?.message || e).slice(0, 120)}`;
       reportError("completar misi\xF3n", e);
     } finally {
-      state.busy.delete(q.id);
+      state.current = null;
       refresh();
       rerender();
     }
+  }
+  function note(rerender) {
+    return (s) => {
+      state.log = s;
+      rerender();
+    };
   }
   function upd(q, rerender) {
     return (done, needed) => {
@@ -547,7 +588,6 @@ var __vd_plugin = (() => {
         }
         const cards = state.quests.map((q) => {
           const pct = q.secondsNeeded > 0 ? Math.min(1, q.secondsDone / q.secondsNeeded) : 0;
-          const running = state.busy.has(q.id);
           const meta = KIND_META[q.kind];
           return React.createElement(
             View,
@@ -563,8 +603,8 @@ var __vd_plugin = (() => {
             React.createElement(Text, { style: styles.mono }, `${Math.floor(q.secondsDone)}s / ${Math.floor(q.secondsNeeded)}s`),
             q.runnable ? React.createElement(Btn, {
               key: `b${q.id}`,
-              label: running ? "Ejecutando\u2026" : q.enrolled ? "\u25B6 Completar" : "\u25B6 Aceptar y completar",
-              disabled: running || !!(q.blockedUntil && q.blockedUntil > Date.now()),
+              label: state.current === q.id ? "Ejecutando\u2026" : q.enrolled ? "\u25B6 Completar" : "\u25B6 Aceptar y completar",
+              disabled: state.current != null || !!(q.blockedUntil && q.blockedUntil > Date.now()),
               onPress: () => runQuest(q, rerender)
             }) : React.createElement(Text, { style: styles.sub }, "Tipo no soportado todav\xEDa"),
             meta?.hint ? React.createElement(Text, { style: styles.sub }, meta.hint) : null
