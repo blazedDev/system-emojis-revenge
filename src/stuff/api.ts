@@ -21,6 +21,19 @@ export function getToken(): string | null {
     return null;
 }
 
+export function getUserId(): string | null {
+    try {
+        const b: any = getBunny();
+        const v: any = getVd();
+        const mod =
+            b?.metro?.findByProps?.("getCurrentUser")
+            ?? v?.metro?.findByProps?.("getCurrentUser");
+        const id = mod?.getCurrentUser?.().id;
+        if (id != null) return String(id);
+    } catch {}
+    return null;
+}
+
 const API_BASE = "https://discord.com/api/v9";
 
 export async function apiGet(path: string): Promise<any | null> {

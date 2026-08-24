@@ -1,41 +1,89 @@
 import { getReact, getRN, toast, reportError } from "./stuff/env";
-import { listQuests, completeVideoQuest, QuestInfo } from "./stuff/quests";
-import { getToken } from "./stuff/api";
+import {
+    listQuests,
+    completeVideoQuest,
+    completeGameQuest,
+    completeStreamOrActivityQuest,
+    enrollQuest,
+    claimReward,
+    dispatchQuests,
+    QuestInfo,
+} from "./stuff/quests";
+import { getToken, getUserId } from "./stuff/api";
 
-export const VERSION = "q1";
+export const VERSION = "q2";
 
 let state = {
     quests: [] as QuestInfo[],
     busy: new Set<string>(),
     log: "",
-    lastRefresh: 0,
+    claiming: false,
 };
 
 function refresh() {
     try {
         state.quests = listQuests();
-        state.lastRefresh = Date.now();
     } catch (e) {
         reportError("listar misiones", e);
     }
 }
 
+const KIND_META: Record<string, { label: string; hint: string }> = {
+    video: { label: "📺 video", hint: "~segundos" },
+    game: { label: "🎮 juego", hint: "1 latido/60s — tarda lo que pida (min)" },
+    stream: { label: "🎬 stream", hint: "1 latido/30s — mantené la app abierta" },
+    activity: { label: "🎤 actividad", hint: "1 latido/20s — idealmente con alguien en el vc" },
+};
+
 async function runQuest(q: QuestInfo, rerender: () => void) {
     if (state.busy.has(q.id)) return;
-    state.busy.add(q.id);
-    state.log = `Ejecutando: ${q.name}…`;
-    rerender();
-    try {
-        const res = await completeVideoQuest(q, (done, needed) => {
-            q.secondsDone = done;
-            state.log = `${q.name}: ${done}/${needed}s`;
+    if (!q.enrolled) {
+        state.log = `Aceptando ${q.name}…`;
+        rerender();
+        const e = await enrollQuest(q.id);
+        if (!e.ok) {
+            state.log = `⚠ No se pudo aceptar ${q.name}: ${e.error}`;
+            toast(state.log);
+            refresh();
             rerender();
-        });
-        if (res.ok) {
-            state.log = `✅ ${q.name}${res.instant ? " (instantánea)" : " completada"} — reclamá la recompensa en la pestaña Misiones`;
+            return;
+        }
+        q.enrolled = true;
+    }
+    if (q.blockedUntil && q.blockedUntil > Date.now()) {
+        state.log = `⛔ Misiones bloqueadas en tu cuenta hasta ${new Date(q.blockedUntil).toLocaleString()}`;
+        rerender();
+        return;
+    }
+
+    state.busy.add(q.id);
+    const meta = KIND_META[q.kind];
+    state.log = `${meta?.label ?? q.taskName}: ${q.name} (${meta?.hint ?? ""})`;
+    rerender();
+
+    let result: { ok: boolean; error?: string } = { ok: false, error: "tipo desconocido" };
+    try {
+        if (q.kind === "video") {
+            result = await completeVideoQuest(q, upd(q, rerender));
+        } else if (q.kind === "game") {
+            result = await completeGameQuest(q, upd(q, rerender));
+        } else if (q.kind === "stream" || q.kind === "activity") {
+            const uid = getUserId();
+            result = uid
+                ? await completeStreamOrActivityQuest(q, uid, upd(q, rerender))
+                : { ok: false, error: "no se obtuvo tu id de usuario" };
+        }
+
+        if (result.ok) {
+            state.log = `🎁 ${q.name}: completada, reclamando recompensa…`;
+            rerender();
+            const c = await claimReward(q.id);
+            state.log = c.ok
+                ? `✅ ${q.name}: ¡recompensa reclamada!`
+                : `✅ ${q.name}: completada. ${c.error}`;
             toast(state.log);
         } else {
-            state.log = `⚠ ${q.name}: ${res.error ?? "falló"}`;
+            state.log = `⚠ ${q.name}: ${result.error}`;
             toast(state.log);
         }
     } catch (e: any) {
@@ -46,6 +94,32 @@ async function runQuest(q: QuestInfo, rerender: () => void) {
         refresh();
         rerender();
     }
+}
+
+function upd(q: QuestInfo, rerender: () => void) {
+    return (done: number, needed: number) => {
+        q.secondsDone = done;
+        state.log = `${q.name}: ${Math.floor(done)}/${Math.floor(needed)}s`;
+        rerender();
+    };
+}
+
+async function enrollAll(rerender: () => void) {
+    const avail = dispatchQuests();
+    if (!avail.length) {
+        state.log = "No hay misiones nuevas para aceptar.";
+        rerender();
+        return;
+    }
+    let okN = 0;
+    for (const q of avail) {
+        const r = await enrollQuest(q.id);
+        if (r.ok) okN++;
+    }
+    state.log = `Aceptadas ${okN}/${avail.length} misiones.`;
+    toast(state.log);
+    refresh();
+    rerender();
 }
 
 function buildSettings(): any {
@@ -66,14 +140,8 @@ function buildSettings(): any {
             card: { borderRadius: 10, borderWidth: 1, borderColor: "#3a3a45", padding: 10, gap: 4 },
             qname: { fontSize: 14, fontWeight: "600" },
             mono: { fontFamily: "monospace", fontSize: 11, opacity: 0.8 },
-            pill: {
-                alignSelf: "flex-start",
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: 16,
-                backgroundColor: "#5865f2",
-                marginTop: 4,
-            },
+            row: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 4 },
+            pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: "#5865f2" },
             pillOff: { backgroundColor: "#4a4a55" },
             pillTxt: { color: "#fff", fontSize: 13 },
             barBg: { height: 6, borderRadius: 3, backgroundColor: "#3a3a45", overflow: "hidden" },
@@ -81,23 +149,16 @@ function buildSettings(): any {
             err: { color: "#ff5252", fontSize: 12 },
         });
 
-        const Btn = (props: { label: string; onPress: () => void; disabled?: boolean }) =>
+        const Btn = (props: { label: string; onPress: () => void; disabled?: boolean; key?: string }) =>
             React.createElement(
                 Text,
-                { style: [styles.pill, props.disabled ? styles.pillOff : null], onPress: props.disabled ? undefined : props.onPress },
+                {
+                    key: props.key,
+                    style: [styles.pill, props.disabled ? styles.pillOff : null],
+                    onPress: props.disabled ? undefined : props.onPress,
+                },
                 props.label,
             );
-
-        const TaskBadge = (t: string) => {
-            const map: Record<string, string> = {
-                WATCH_VIDEO: "📺 video",
-                WATCH_VIDEO_ON_MOBILE: "📱 video móvil",
-                PLAY_ON_DESKTOP: "🎮 juego (PC)",
-                STREAM_ON_DESKTOP: "🎬 stream (PC)",
-                PLAY_ACTIVITY: "🎤 actividad",
-            };
-            return map[t] ?? t;
-        };
 
         return function Settings() {
             const [, force] = React.useState(0);
@@ -119,25 +180,25 @@ function buildSettings(): any {
             const cards = state.quests.map((q: QuestInfo) => {
                 const pct = q.secondsNeeded > 0 ? Math.min(1, q.secondsDone / q.secondsNeeded) : 0;
                 const running = state.busy.has(q.id);
+                const meta = KIND_META[q.kind];
                 return React.createElement(
                     View,
                     { key: q.id, style: styles.card },
                     React.createElement(Text, { style: styles.qname }, q.name),
-                    React.createElement(Text, { style: styles.mono }, TaskBadge(q.taskName)),
+                    React.createElement(Text, { style: styles.mono }, meta?.label ?? q.taskName),
+                    q.enrolled ? null : React.createElement(Text, { style: styles.sub }, "Sin aceptar"),
                     React.createElement(View, { style: styles.barBg },
                         React.createElement(View, { style: [styles.barFg, { width: `${Math.round(pct * 100)}%` }] as any })),
-                    React.createElement(
-                        Text,
-                        { style: styles.mono },
-                        `${Math.floor(q.secondsDone)}s / ${Math.floor(q.secondsNeeded)}s`,
-                    ),
-                    q.supported
+                    React.createElement(Text, { style: styles.mono }, `${Math.floor(q.secondsDone)}s / ${Math.floor(q.secondsNeeded)}s`),
+                    q.runnable
                         ? React.createElement(Btn, {
-                            label: running ? "Ejecutando…" : "▶ Completar",
-                            disabled: running,
+                            key: `b${q.id}`,
+                            label: running ? "Ejecutando…" : q.enrolled ? "▶ Completar" : "▶ Aceptar y completar",
+                            disabled: running || !!(q.blockedUntil && q.blockedUntil > Date.now()),
                             onPress: () => runQuest(q, rerender),
                         })
-                        : React.createElement(Text, { style: styles.sub }, "No soportada en móvil"),
+                        : React.createElement(Text, { style: styles.sub }, "Tipo no soportado todavía"),
+                    meta?.hint ? React.createElement(Text, { style: styles.sub }, meta.hint) : null,
                 );
             });
 
@@ -148,24 +209,19 @@ function buildSettings(): any {
                 React.createElement(
                     Text,
                     { style: styles.sub },
-                    "Completa automáticamente las misiones de video de Discord.",
+                    "Completa TODOS los tipos de misión desde el móvil.\nMantené la app abierta durante las misiones largas.",
                 ),
                 React.createElement(
                     View,
-                    { style: { flexDirection: "row", gap: 8 } as any },
-                    React.createElement(Btn, { label: "🔄 Actualizar lista", onPress: () => { refresh(); rerender(); } }),
+                    { style: styles.row },
+                    React.createElement(Btn, { key: "ref", label: "🔄 Actualizar", onPress: () => { refresh(); rerender(); } }),
+                    React.createElement(Btn, { key: "enr", label: "✅ Aceptar todas las nuevas", onPress: () => enrollAll(rerender) }),
                 ),
                 cards.length === 0
-                    ? React.createElement(
-                        Text,
-                        { style: styles.sub },
-                        "No hay misiones activas sin completar.\nAceptá una misión en la pestaña Misiones y volvé acá.",
-                    )
+                    ? React.createElement(Text, { style: styles.sub }, "No hay misiones activas.")
                     : null,
                 ...cards,
-                state.log
-                    ? React.createElement(Text, { style: styles.mono }, String(state.log))
-                    : null,
+                state.log ? React.createElement(Text, { style: styles.mono }, String(state.log)) : null,
             );
         };
     } catch (e) {
@@ -189,7 +245,7 @@ export function settings(props?: any): any {
 export function onLoad(): void {
     try {
         refresh();
-        toast(`Quest Farmer ${VERSION}: ${state.quests.length} misión(es) activa(s)`);
+        toast(`Quest Farmer ${VERSION}: ${state.quests.length} misión(es)`);
     } catch (e) {
         reportError("onLoad", e);
     }
